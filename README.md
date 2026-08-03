@@ -1,2 +1,59 @@
-# the-house-at-the-end
-You woke up in a small house floating in an empty, fragmented world.
+# The House at the End
+
+You wake in a small house floating in an empty, fragmented world. Keeping its
+hearth alive makes the nearby rooms real. Lost travelers arrive, fragments of
+other places reconnect, and every recovered memory raises a more troubling
+question: is the house preserving a vanished world, or preventing a new one
+from beginning?
+
+The House at the End is an original, text-first survival and exploration game
+for Pebble. It uses a gradual refuge-to-expedition progression while giving its
+world, writing, systems, encounters, and implementation their own identity.
+
+## First playable milestone
+
+The current vertical slice includes:
+
+- native Pebble C support for Basalt and Emery;
+- a button-driven house, workshop, guest, and expedition interface;
+- manual gathering and hearth stabilization;
+- travelers who passively recover resources according to their assigned role;
+- three unlockable house improvements;
+- a supply-limited expedition and turn-based hostile memory;
+- versioned, checksummed watch-side persistence with elapsed-time production;
+- deterministic host tests for the game-state rules;
+- no phone, account, network connection, or background worker.
+
+The complete design and narrative plans live in
+[`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) and
+[`docs/NARRATIVE.md`](docs/NARRATIVE.md).
+
+## Controls
+
+- **UP / DOWN:** move through the current list.
+- **SELECT:** enter a section or perform the highlighted action.
+- **BACK:** return to the previous section; from the house, exit the app.
+
+The compact status line uses `K` for kindling, `M` for remnants, `R` for
+rations, and `C` for clarity. Selected-action descriptions spell out the full
+resource names and costs.
+
+## Build and test
+
+The project requires Pebble SDK 4.x.
+
+```sh
+./scripts/test-game-state.sh
+pebble build
+```
+
+The resulting universal PBW contains Basalt and Emery binaries at
+`build/the-house-at-the-end.pbw`.
+
+## License
+
+The project is licensed under the Apache License 2.0. See [`LICENSE`](LICENSE).
+
+The refuge-to-expedition pacing is inspired in part by *A Dark Room*. This is
+an independent implementation and contains no upstream code, prose, artwork,
+event data, or other game assets.

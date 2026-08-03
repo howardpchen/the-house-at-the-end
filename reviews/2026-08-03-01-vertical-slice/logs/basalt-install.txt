@@ -1,0 +1,7 @@
+Command: pebble install --emulator basalt
+Result: exit 0
+Postcondition: App install succeeded.
+
+The complete first-memory progression was exercised at 144x168. The initial
+expedition HUD wrapped to a third line; the compact C/R revision was rebuilt,
+reinstalled, and recaptured successfully.

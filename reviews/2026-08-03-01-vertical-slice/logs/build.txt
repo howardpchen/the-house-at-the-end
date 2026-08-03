@@ -1,0 +1,15 @@
+Command: pebble build
+SDK: 4.17
+Result: exit 0
+
+Emery:
+- resources: 4092 bytes
+- total RAM footprint: 7758 bytes of 128 KB
+
+Basalt:
+- resources: 4092 bytes
+- total RAM footprint: 7758 bytes of 64 KB
+
+Output: build/the-house-at-the-end.pbw
+Size: 25,573 bytes
+SHA-256: f53938cf4c384e8e64ada43fa587662ab9a8e40c71ec5a47e90cc03d22d51000

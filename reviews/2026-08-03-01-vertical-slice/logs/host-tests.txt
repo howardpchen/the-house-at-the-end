@@ -1,0 +1,5 @@
+Command: ./scripts/test-game-state.sh
+Result: exit 0
+Output: house_state tests passed
+
+Compiler flags: -std=c11 -Wall -Wextra -Werror -pedantic

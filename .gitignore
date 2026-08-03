@@ -1,3 +1,11 @@
+build/
+.lock-waf_*
+.waf-*
+__pycache__/
+*.pyc
+*.swp
+.DS_Store
+
 # Prerequisites
 *.d
 

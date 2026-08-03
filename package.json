@@ -1,0 +1,25 @@
+{
+  "name": "the-house-at-the-end",
+  "author": "hc",
+  "version": "0.1.0",
+  "keywords": ["pebble-app", "game"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "House at the End",
+    "uuid": "fb93f935-7f8d-440e-bf26-2b199e9d3141",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "basalt",
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [],
+    "resources": {
+      "media": []
+    }
+  }
+}

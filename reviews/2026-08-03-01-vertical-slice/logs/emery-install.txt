@@ -1,0 +1,6 @@
+Command: pebble install --emulator emery
+Result: exit 0
+Postcondition: App install succeeded.
+
+The final candidate PBW was reinstalled after a clean build with the same
+successful postcondition.
