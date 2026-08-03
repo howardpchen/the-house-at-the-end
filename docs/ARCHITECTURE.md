@@ -1,5 +1,10 @@
 # Architecture
 
+This file documents the implemented vertical-slice architecture. The planned
+world generator, segmented save, event interpreter, module boundaries, and
+memory gates are specified in the spoiler-heavy
+[`DESIGN_BIBLE.md`](DESIGN_BIBLE.md).
+
 ## Targets
 
 - Pebble Time Steel (`basalt`), 144x168 rectangular color display.

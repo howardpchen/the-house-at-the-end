@@ -1,0 +1,15 @@
+Document: docs/DESIGN_BIBLE.md
+Lines: 1140
+Words: 6859
+SHA-256: d8efb1d0d531482b0aa7b6bcf1fe11841b923e1c4a22391453501dd3f6186d16
+
+Checks:
+- git diff --check: pass in game repository
+- git diff --check: pass in Obsidian vault
+- repo/Obsidian cmp: identical
+- spoiler-term scan of README and docs/GAME_DESIGN.md: pass
+- relative Markdown file targets: pass
+- host game-state tests from repository root: pass
+
+Runtime source changed: no
+PBW changed: no

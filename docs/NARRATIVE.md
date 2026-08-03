@@ -1,5 +1,9 @@
 # Narrative and Lore
 
+> **Complete spoilers.** The canonical narrative plan now lives in
+> [`DESIGN_BIBLE.md`](DESIGN_BIBLE.md), which should be updated first when the
+> plot changes. This shorter file preserves the original narrative summary.
+
 ## Premise
 
 The world has not ended cleanly. Places, objects, and people survive as
