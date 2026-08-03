@@ -21,5 +21,8 @@ were compacted to `C/R`, rebuilt, reinstalled, and recaptured on both platforms.
 The reviewed 25,573-byte PBW has SHA-256
 `f53938cf4c384e8e64ada43fa587662ab9a8e40c71ec5a47e90cc03d22d51000`.
 
-Physical Time Steel and Time 2 installation are not part of this review. Button
-feel, real-device persistence, and extended stability remain hardware checks.
+CloudPebble installed the reviewed PBW on a physical Time 2 on August 3, 2026.
+The supervised command recorded exit code 0 and `App install succeeded` after
+the phone connected. Physical Time Steel installation, Time 2 readability and
+button feel, real-device persistence, and extended stability remain hardware
+checks.

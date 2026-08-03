@@ -1,0 +1,19 @@
+Pebble Time 2 CloudPebble install
+Date: 2026-08-03T17:14:14-04:00
+Command: pebble install --cloudpebble
+Supervisor unit: house-end-cloud-20260803-171414.service
+Recorded status: succeeded
+Recorded exit code: 0
+Postcondition: App install succeeded.
+PBW: build/the-house-at-the-end.pbw
+SHA-256: f53938cf4c384e8e64ada43fa587662ab9a8e40c71ec5a47e90cc03d22d51000
+
+Connection sequence:
+- Connected to CloudPebble proxy websocket.
+- CloudPebble proxy authentication succeeded.
+- Phone connection status: Connected.
+- Installing app...
+- App install succeeded.
+
+This verifies delivery to the physical watch. Readability, button feel,
+real-device persistence, and extended stability still require hands-on review.

@@ -6,6 +6,8 @@
   complete progression pass.
 - [`screenshots/basalt/`](screenshots/basalt/): Basalt layout evidence.
 - [`logs/`](logs/): concise host, build, and emulator results.
+- [`logs/time2-cloud-install.txt`](logs/time2-cloud-install.txt): supervised
+  physical Time 2 delivery result.
 - [`artifacts/the-house-at-the-end.pbw`](artifacts/the-house-at-the-end.pbw):
   reviewed universal application bundle.
 

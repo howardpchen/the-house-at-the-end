@@ -13,4 +13,5 @@
   chronicle states fit and remain legible.
 - [x] Basalt emulator install and complete layout review passed.
 - [ ] Physical Pebble Time Steel install and interaction confirmed.
-- [ ] Physical Pebble Time 2 install and interaction confirmed.
+- [x] Physical Pebble Time 2 install reports `App install succeeded`.
+- [ ] Physical Pebble Time 2 interaction and readability confirmed by hc.
