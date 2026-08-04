@@ -67,6 +67,21 @@ Changing gatherer count derives listener count so guest assignments remain
 valid. Reset requires entering a separate confirmation screen and pressing
 SELECT again; BACK cancels.
 
+## Timed house actions
+
+Search Rooms, Feed Hearth, and Prepare Ration share a foreground-only two-second
+action controller with 100 ms visual updates. Starting an action checks its
+prerequisites through non-mutating functions owned by the rule layer. During
+progress, SELECT, UP, DOWN, BACK, and long SELECT are ignored. Costs and rewards
+are applied exactly once at completion and then persisted.
+
+Elapsed-time simulation is deferred while a timed action is active, then caught
+up normally afterward. This preserves the validity decision made at action
+start without discarding Fire decay or guest production. The current outlined
+bar and bottom-screen placement are deliberately provisional; future visual
+tuning must not silently change the two-second duration, atomic completion, or
+input-lock semantics.
+
 ## Review acceptance
 
 - Both Basalt and Emery compile into the universal PBW.

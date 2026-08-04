@@ -1,0 +1,40 @@
+Setting top to                           : /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end 
+Setting out to                           : /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build 
+Checking for program 'webpack'           : /home/oc/.local/share/pebble-sdk/SDKs/current/node_modules/.bin/webpack 
+Found Pebble SDK for emery in:           : /home/oc/.local/share/pebble-sdk/SDKs/current/sdk-core/pebble/emery 
+Checking for program 'gcc, cc'           : arm-none-eabi-gcc 
+Checking for program 'ar'                : arm-none-eabi-ar 
+Found Pebble SDK for basalt in:          : /home/oc/.local/share/pebble-sdk/SDKs/current/sdk-core/pebble/basalt 
+Checking for program 'gcc, cc'           : arm-none-eabi-gcc 
+Checking for program 'ar'                : arm-none-eabi-ar 
+'configure' finished successfully (0.037s)
+Waf: Entering directory `/home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build'
+[12/14] Compiling emery | c: src/c/main.c -> build/src/c/main.c.16.o
+[13/14] Linking emery | cprogram: build/src/c/house_state.c.16.o build/src/c/main.c.16.o build/emery/appinfo.auto.c.16.o build/emery/src/resource_ids.auto.c.16.o -> build/emery/pebble-app.elf
+/home/oc/.local/share/pebble-sdk/SDKs/4.17/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/bin/ld: warning: /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build/emery/pebble-app.elf has a LOAD segment with RWX permissions
+
+[14/14] Processing emery | memory_usage_report: build/emery/pebble-app.elf build/emery/app_resources.pbpack
+-------------------------------------------------------
+EMERY APP MEMORY USAGE
+Total size of resources:        4092 bytes / 256.0KB
+Total footprint in RAM:         11497 bytes / 128.0KB
+Free RAM available (heap):      119575 bytes
+------------------------------------------------------- 
+[25/27] Compiling basalt | c: src/c/main.c -> build/src/c/main.c.17.o
+[26/27] Linking basalt | cprogram: build/src/c/house_state.c.17.o build/src/c/main.c.17.o build/basalt/appinfo.auto.c.17.o build/basalt/src/resource_ids.auto.c.17.o -> build/basalt/pebble-app.elf
+/home/oc/.local/share/pebble-sdk/SDKs/4.17/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/bin/ld: warning: /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build/basalt/pebble-app.elf has a LOAD segment with RWX permissions
+
+[27/27] Processing basalt | memory_usage_report: build/basalt/pebble-app.elf build/basalt/app_resources.pbpack
+-------------------------------------------------------
+BASALT APP MEMORY USAGE
+Total size of resources:        4092 bytes / 256.0KB
+Total footprint in RAM:         11497 bytes / 64.0KB
+Free RAM available (heap):      54039 bytes
+------------------------------------------------------- 
+[28/32] Compiling emery | /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build/emery/pebble-app.raw.bin: build/emery/pebble-app.elf -> build/emery/pebble-app.raw.bin
+[29/32] Compiling basalt | /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build/basalt/pebble-app.raw.bin: build/basalt/pebble-app.elf -> build/basalt/pebble-app.raw.bin
+[30/32] Processing emery | inject-metadata: build/emery/pebble-app.raw.bin build/emery/pebble-app.elf build/emery/app_resources.pbpack -> build/emery/pebble-app.bin
+[31/32] Processing basalt | inject-metadata: build/basalt/pebble-app.raw.bin build/basalt/pebble-app.elf build/basalt/app_resources.pbpack -> build/basalt/pebble-app.bin
+[32/32] Creating app_bundle:  -> build/the-house-at-the-end.pbw
+Waf: Leaving directory `/home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build'
+'build' finished successfully (0.502s)

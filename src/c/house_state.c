@@ -159,7 +159,7 @@ HouseResult house_search(HouseState *state) {
   return HOUSE_RESULT_OK;
 }
 
-HouseResult house_tend_hearth(HouseState *state) {
+HouseResult house_check_tend_hearth(const HouseState *state) {
   if (!state) {
     return HOUSE_RESULT_LOCKED;
   }
@@ -168,6 +168,15 @@ HouseResult house_tend_hearth(HouseState *state) {
   }
   if (state->kindling < 2) {
     return HOUSE_RESULT_NO_RESOURCES;
+  }
+
+  return HOUSE_RESULT_OK;
+}
+
+HouseResult house_tend_hearth(HouseState *state) {
+  const HouseResult check = house_check_tend_hearth(state);
+  if (check != HOUSE_RESULT_OK) {
+    return check;
   }
 
   state->kindling -= 2;
@@ -181,13 +190,22 @@ HouseResult house_tend_hearth(HouseState *state) {
   return HOUSE_RESULT_OK;
 }
 
-HouseResult house_prepare_ration(HouseState *state) {
+HouseResult house_check_prepare_ration(const HouseState *state) {
   if (!state || state->hearth_level < HOUSE_HEARTH_HELD ||
       !house_has_build(state, HOUSE_BUILD_WORKTABLE)) {
     return HOUSE_RESULT_LOCKED;
   }
   if (state->kindling < 1 || state->remnants < 1) {
     return HOUSE_RESULT_NO_RESOURCES;
+  }
+
+  return HOUSE_RESULT_OK;
+}
+
+HouseResult house_prepare_ration(HouseState *state) {
+  const HouseResult check = house_check_prepare_ration(state);
+  if (check != HOUSE_RESULT_OK) {
+    return check;
   }
 
   state->kindling--;

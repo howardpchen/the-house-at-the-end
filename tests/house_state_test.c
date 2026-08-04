@@ -260,6 +260,25 @@ static void test_active_expedition_survives_fire_drop(void) {
   assert(house_state_is_valid(&state));
 }
 
+static void test_action_checks_do_not_mutate_state(void) {
+  HouseState state;
+  house_state_init(&state, 10000);
+  state.kindling = 10;
+  assert(house_check_tend_hearth(&state) == HOUSE_RESULT_OK);
+  assert(state.kindling == 10);
+  assert(state.hearth_level == 0);
+
+  assert(house_check_prepare_ration(&state) == HOUSE_RESULT_LOCKED);
+  state.hearth_level = HOUSE_HEARTH_HELD;
+  state.built_mask = 1U << HOUSE_BUILD_WORKTABLE;
+  state.remnants = 1;
+  assert(house_check_prepare_ration(&state) == HOUSE_RESULT_OK);
+  assert(state.kindling == 10);
+  assert(state.remnants == 1);
+  assert(state.rations == 0);
+  assert(house_state_is_valid(&state));
+}
+
 int main(void) {
   test_opening_and_first_guest();
   test_search_and_elapsed_production();
@@ -272,6 +291,7 @@ int main(void) {
   test_fire_tier_restrictions();
   test_guest_production_stops_when_fire_becomes_unseen();
   test_active_expedition_survives_fire_drop();
+  test_action_checks_do_not_mutate_state();
   puts("house_state tests passed");
   return 0;
 }

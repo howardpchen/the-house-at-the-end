@@ -53,7 +53,8 @@ typedef enum {
 typedef enum {
   TIMED_ACTION_NONE = 0,
   TIMED_ACTION_SEARCH,
-  TIMED_ACTION_FEED_HEARTH
+  TIMED_ACTION_FEED_HEARTH,
+  TIMED_ACTION_PREPARE_RATION
 } TimedAction;
 
 typedef struct {
@@ -447,17 +448,18 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
       snprintf(label, label_size, "Feed hearth");
       snprintf(detail, detail_size, "2 kindling. %s Fire %u/5.",
                prv_hearth_name(), s_state.hearth_level);
-      *enabled = s_state.hearth_level < HOUSE_HEARTH_MAX &&
-                 s_state.kindling >= 2;
+      *enabled = house_check_tend_hearth(&s_state) == HOUSE_RESULT_OK;
     } else {
       snprintf(label, label_size, "Prepare ration");
       if (s_state.hearth_level < HOUSE_HEARTH_HELD) {
         snprintf(detail, detail_size, "Needs Held Fire (3).");
         *enabled = false;
+      } else if (!house_has_build(&s_state, HOUSE_BUILD_WORKTABLE)) {
+        snprintf(detail, detail_size, "Needs worktable.");
+        *enabled = false;
       } else {
         snprintf(detail, detail_size, "Costs 1 kindling and 1 remnant.");
-        *enabled = house_has_build(&s_state, HOUSE_BUILD_WORKTABLE) &&
-                   s_state.kindling >= 1 && s_state.remnants >= 1;
+        *enabled = house_check_prepare_ration(&s_state) == HOUSE_RESULT_OK;
       }
     }
     return;
@@ -641,8 +643,20 @@ static void prv_draw_list(GContext *ctx, GRect bounds, int16_t top) {
     const int16_t fill_width =
         (int16_t)((bar_width - 4) * s_action_progress_ms /
                   TIMED_ACTION_DURATION_MS);
-    const char *progress_text = s_timed_action == TIMED_ACTION_SEARCH
-        ? "Searching rooms..." : "Feeding hearth...";
+    const char *progress_text = "Working...";
+    switch (s_timed_action) {
+      case TIMED_ACTION_SEARCH:
+        progress_text = "Searching rooms...";
+        break;
+      case TIMED_ACTION_FEED_HEARTH:
+        progress_text = "Feeding hearth...";
+        break;
+      case TIMED_ACTION_PREPARE_RATION:
+        progress_text = "Preparing ration...";
+        break;
+      case TIMED_ACTION_NONE:
+        break;
+    }
     prv_draw_text(ctx, progress_text,
                   fonts_get_system_font(FONT_KEY_GOTHIC_18),
                   s_color_accent,
@@ -781,16 +795,27 @@ static void prv_timed_action_tick(void *context) {
   if (s_action_progress_ms >= TIMED_ACTION_DURATION_MS) {
     const TimedAction completed_action = s_timed_action;
     s_timed_action = TIMED_ACTION_NONE;
-    if (completed_action == TIMED_ACTION_SEARCH) {
-      const int16_t before = s_state.remnants;
-      const HouseResult result = house_search(&s_state);
-      prv_show_result(result, s_state.remnants > before
-          ? "A remnant beneath the boards." : "Dry wood. Still useful.");
-    } else {
-      const uint8_t before = s_state.residents;
-      const HouseResult result = house_tend_hearth(&s_state);
-      prv_show_result(result, s_state.residents > before
-          ? "Someone knocks at the door." : "The room holds its shape.");
+    switch (completed_action) {
+      case TIMED_ACTION_SEARCH: {
+        const int16_t before = s_state.remnants;
+        const HouseResult result = house_search(&s_state);
+        prv_show_result(result, s_state.remnants > before
+            ? "A remnant beneath the boards." : "Dry wood. Still useful.");
+        break;
+      }
+      case TIMED_ACTION_FEED_HEARTH: {
+        const uint8_t before = s_state.residents;
+        const HouseResult result = house_tend_hearth(&s_state);
+        prv_show_result(result, s_state.residents > before
+            ? "Someone knocks at the door." : "The room holds its shape.");
+        break;
+      }
+      case TIMED_ACTION_PREPARE_RATION:
+        prv_show_result(house_prepare_ration(&s_state),
+                        "A ration wrapped and ready.");
+        break;
+      case TIMED_ACTION_NONE:
+        return;
     }
     prv_save();
     return;
@@ -809,15 +834,23 @@ static void prv_start_timed_action(TimedAction action) {
   if (s_timed_action != TIMED_ACTION_NONE) {
     return;
   }
-  if (action == TIMED_ACTION_FEED_HEARTH) {
-    if (s_state.hearth_level >= HOUSE_HEARTH_MAX) {
-      prv_show_result(HOUSE_RESULT_AT_LIMIT, "");
-      return;
-    }
-    if (s_state.kindling < 2) {
-      prv_show_result(HOUSE_RESULT_NO_RESOURCES, "");
-      return;
-    }
+  HouseResult check = HOUSE_RESULT_OK;
+  switch (action) {
+    case TIMED_ACTION_FEED_HEARTH:
+      check = house_check_tend_hearth(&s_state);
+      break;
+    case TIMED_ACTION_PREPARE_RATION:
+      check = house_check_prepare_ration(&s_state);
+      break;
+    case TIMED_ACTION_SEARCH:
+      break;
+    case TIMED_ACTION_NONE:
+      check = HOUSE_RESULT_LOCKED;
+      break;
+  }
+  if (check != HOUSE_RESULT_OK) {
+    prv_show_result(check, "");
+    return;
   }
   prv_clear_notice();
   s_action_progress_ms = 0;
@@ -860,10 +893,9 @@ static void prv_activate_hearth(void) {
     prv_start_timed_action(TIMED_ACTION_FEED_HEARTH);
     return;
   } else {
-    prv_show_result(house_prepare_ration(&s_state),
-                    "A ration wrapped and ready.");
+    prv_start_timed_action(TIMED_ACTION_PREPARE_RATION);
+    return;
   }
-  prv_save();
 }
 
 static void prv_activate_workshop(void) {
@@ -1160,7 +1192,8 @@ static void prv_click_config(void *context) {
 static void prv_tick(struct tm *tick_time, TimeUnits units_changed) {
   (void)tick_time;
   (void)units_changed;
-  if (house_apply_elapsed(&s_state, time(NULL))) {
+  if (s_timed_action == TIMED_ACTION_NONE &&
+      house_apply_elapsed(&s_state, time(NULL))) {
     prv_save();
     layer_mark_dirty(s_canvas);
   }

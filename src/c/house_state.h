@@ -77,7 +77,9 @@ bool house_state_is_valid(const HouseState *state);
 bool house_apply_elapsed(HouseState *state, int64_t now);
 
 HouseResult house_search(HouseState *state);
+HouseResult house_check_tend_hearth(const HouseState *state);
 HouseResult house_tend_hearth(HouseState *state);
+HouseResult house_check_prepare_ration(const HouseState *state);
 HouseResult house_prepare_ration(HouseState *state);
 
 bool house_has_build(const HouseState *state, HouseBuild build);

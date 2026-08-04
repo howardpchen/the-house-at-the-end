@@ -11,14 +11,14 @@
 - Platform: PebbleOS native C
 - Primary targets: Basalt / Pebble Time Steel and Emery / Pebble Time 2
 - Initial language: English
-- Current implementation: version 0.1.7 vertical slice
+- Current implementation: version 0.1.8 vertical slice
 - Bible status: complete direction for the classic campaign; numerical balance
   remains provisional until physical-watch testing
 - Canonical review copy: this file and its synchronized Obsidian copy
 
 The labels used throughout are:
 
-- **Implemented:** present in version 0.1.7.
+- **Implemented:** present in version 0.1.8.
 - **Planned:** committed campaign direction, not yet implemented.
 - **Tentative:** a useful option that still needs a product decision or test.
 
@@ -250,7 +250,7 @@ at 999 or below. Overflow always saturates rather than wraps.
 - Guest room: 8 kindling + 4 remnants.
 - Worktable: 6 kindling + 5 remnants.
 - Anchor line: 10 kindling + 8 remnants; requires the first two rooms.
-- Prepare ration: 1 kindling + 1 remnant.
+- Prepare ration: two-second progress action; 1 kindling + 1 remnant.
 - Crooked Hall loadout: 2 rations + 4 clarity + 4 resolve.
 - Expedition movement: 1 clarity per step and 1 ration every second step.
 
