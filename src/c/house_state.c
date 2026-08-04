@@ -57,7 +57,7 @@ bool house_state_is_valid(const HouseState *state) {
   }
 
   if (state->gather_progress >= HOUSE_KINDLING_PER_REMNANT ||
-      state->hearth_level > 5 ||
+      state->hearth_level > HOUSE_HEARTH_MAX ||
       state->hearth_elapsed >= HOUSE_HEARTH_DECAY_SECONDS ||
       (state->hearth_level == 0 && state->hearth_elapsed != 0) ||
       state->residents > 2 || state->memories > 1 ||
@@ -92,6 +92,16 @@ bool house_apply_elapsed(HouseState *state, int64_t now) {
   }
   state->last_updated = now;
 
+  uint32_t guest_elapsed = 0;
+  if (state->hearth_level >= HOUSE_HEARTH_SEEN) {
+    const uint32_t seconds_until_unseen =
+        HOUSE_HEARTH_DECAY_SECONDS - state->hearth_elapsed +
+        (state->hearth_level - HOUSE_HEARTH_SEEN) *
+            HOUSE_HEARTH_DECAY_SECONDS;
+    guest_elapsed = (uint32_t)elapsed < seconds_until_unseen
+        ? (uint32_t)elapsed : seconds_until_unseen;
+  }
+
   bool changed = false;
   if (state->hearth_level > 0) {
     const uint32_t total = state->hearth_elapsed + (uint32_t)elapsed;
@@ -112,20 +122,20 @@ bool house_apply_elapsed(HouseState *state, int64_t now) {
     state->hearth_elapsed = 0;
   }
 
-  if (state->gatherers > 0) {
-    const uint32_t total = state->gather_elapsed + (uint32_t)elapsed;
+  if (state->gatherers > 0 && guest_elapsed > 0) {
+    const uint32_t total = state->gather_elapsed + guest_elapsed;
     const uint32_t cycles = total / 30U;
     state->gather_elapsed = (uint16_t)(total % 30U);
     if (cycles > 0) {
       prv_add_gather_yields(state, cycles * state->gatherers);
       changed = true;
     }
-  } else {
+  } else if (state->gatherers == 0) {
     state->gather_elapsed = 0;
   }
 
-  if (state->listeners > 0) {
-    const uint32_t total = state->listen_elapsed + (uint32_t)elapsed;
+  if (state->listeners > 0 && guest_elapsed > 0) {
+    const uint32_t total = state->listen_elapsed + guest_elapsed;
     const uint32_t cycles = total / 45U;
     state->listen_elapsed = (uint16_t)(total % 45U);
     if (cycles > 0) {
@@ -133,7 +143,7 @@ bool house_apply_elapsed(HouseState *state, int64_t now) {
           state->clarity, (int32_t)cycles * state->listeners);
       changed = true;
     }
-  } else {
+  } else if (state->listeners == 0) {
     state->listen_elapsed = 0;
   }
 
@@ -153,7 +163,7 @@ HouseResult house_tend_hearth(HouseState *state) {
   if (!state) {
     return HOUSE_RESULT_LOCKED;
   }
-  if (state->hearth_level >= 5) {
+  if (state->hearth_level >= HOUSE_HEARTH_MAX) {
     return HOUSE_RESULT_AT_LIMIT;
   }
   if (state->kindling < 2) {
@@ -163,7 +173,7 @@ HouseResult house_tend_hearth(HouseState *state) {
   state->kindling -= 2;
   state->hearth_level++;
   state->hearth_elapsed = 0;
-  if (state->hearth_level >= 2 && state->residents == 0) {
+  if (state->hearth_level >= HOUSE_HEARTH_SEEN && state->residents == 0) {
     state->residents = 1;
     state->gatherers = 1;
     state->story_flags |= HOUSE_STORY_FIRST_GUEST;
@@ -172,7 +182,8 @@ HouseResult house_tend_hearth(HouseState *state) {
 }
 
 HouseResult house_prepare_ration(HouseState *state) {
-  if (!state || !house_has_build(state, HOUSE_BUILD_WORKTABLE)) {
+  if (!state || state->hearth_level < HOUSE_HEARTH_HELD ||
+      !house_has_build(state, HOUSE_BUILD_WORKTABLE)) {
     return HOUSE_RESULT_LOCKED;
   }
   if (state->kindling < 1 || state->remnants < 1) {
@@ -218,7 +229,12 @@ void house_build_cost(HouseBuild build, int16_t *kindling, int16_t *remnants) {
 }
 
 HouseResult house_construct(HouseState *state, HouseBuild build) {
-  if (!state || build >= HOUSE_BUILD_COUNT) {
+  if (!state || build >= HOUSE_BUILD_COUNT ||
+      state->hearth_level < HOUSE_HEARTH_HELD) {
+    return HOUSE_RESULT_LOCKED;
+  }
+  if (build == HOUSE_BUILD_ANCHOR_LINE &&
+      state->hearth_level < HOUSE_HEARTH_SHARED) {
     return HOUSE_RESULT_LOCKED;
   }
   if (house_has_build(state, build)) {
@@ -248,7 +264,8 @@ HouseResult house_construct(HouseState *state, HouseBuild build) {
 }
 
 HouseResult house_assign(HouseState *state, HouseRole role) {
-  if (!state || state->residents == 0) {
+  if (!state || state->hearth_level < HOUSE_HEARTH_SHARED ||
+      state->residents == 0) {
     return HOUSE_RESULT_LOCKED;
   }
 
@@ -272,12 +289,14 @@ HouseResult house_assign(HouseState *state, HouseRole role) {
 
 bool house_can_expedition(const HouseState *state) {
   return state && house_has_build(state, HOUSE_BUILD_ANCHOR_LINE) &&
+         state->hearth_level >= HOUSE_HEARTH_SHARED &&
          state->rations >= 2 && state->clarity >= 4 &&
          !state->expedition_active;
 }
 
 HouseResult house_start_expedition(HouseState *state) {
-  if (!state || !house_has_build(state, HOUSE_BUILD_ANCHOR_LINE)) {
+  if (!state || state->hearth_level < HOUSE_HEARTH_SHARED ||
+      !house_has_build(state, HOUSE_BUILD_ANCHOR_LINE)) {
     return HOUSE_RESULT_LOCKED;
   }
   if (state->expedition_active) {

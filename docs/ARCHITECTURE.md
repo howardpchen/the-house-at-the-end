@@ -44,11 +44,19 @@ changing the 40-byte `HouseState` size.
 
 The save timestamp is the source of truth. On launch and during foreground
 ticks, elapsed seconds are converted into gatherer/listener production and
-one-point-per-minute hearth decay. Feeding the hearth resets its partial-minute
-counter. Catch-up is capped at six hours. Negative elapsed time is ignored. No
-background worker, wakeup event, phone service, or network connection is
-required. Schema 2 reuses the schema-1 state padding byte for the hearth timer,
-so existing version-1 saves migrate without changing the record size.
+one-point-per-two-minutes hearth decay. Feeding the hearth resets its partial
+two-minute counter. Catch-up is capped at six hours. Guest production accrues
+only for the portion of elapsed time during which Fire remains Seen or warmer.
+Negative elapsed time is ignored. No background worker, wakeup event, phone
+service, or network connection is required. Schema 2 reuses the schema-1 state
+padding byte for the hearth timer, so existing version-1 saves migrate without
+changing the record size.
+
+The pure rule layer enforces Fire thresholds rather than relying on disabled UI
+rows: Seen (2) enables guest production, Held (3) enables ordinary construction
+and ration preparation, and Shared (5) enables guest reassignment, anchor-line
+construction, and new expeditions. Existing structures and an active expedition
+persist below their thresholds.
 
 ## Testing menu
 

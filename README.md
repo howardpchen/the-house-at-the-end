@@ -15,7 +15,9 @@ The current vertical slice includes:
 
 - native Pebble C support for Basalt and Emery;
 - a button-driven house, workshop, guest, and expedition interface;
-- two-second room searches and a hearth that loses one Fire per minute;
+- two-second room searches and a hearth that loses one Fire every two minutes;
+- Fire tiers that gate guest production, construction, crafting, guest
+  assignments, the anchor line, and new expeditions;
 - travelers who passively recover resources according to their assigned role;
 - three unlockable house improvements;
 - a supply-limited expedition and turn-based encounter;
@@ -49,6 +51,13 @@ confirmation screen. Test changes save immediately.
 The compact status line uses `K` for kindling, `M` for remnants, `R` for
 rations, and `C` for clarity. Selected-action descriptions spell out the full
 resource names and costs.
+
+Fire 0 is Cold; searching and feeding remain available. Fire 2 is Seen and
+allows guests to arrive and work. Fire 3 is Held and enables ordinary
+construction and ration preparation. Fire 5 is Shared and enables guest
+assignment, the anchor line, and new expeditions. Fire 4 extends the Held
+buffer without adding another unlock. Completed construction and active
+expeditions are never erased when Fire falls.
 
 ## Build and test
 

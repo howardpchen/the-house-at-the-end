@@ -36,6 +36,7 @@ static void test_search_and_elapsed_production(void) {
   state.residents = 2;
   state.gatherers = 1;
   state.listeners = 1;
+  state.hearth_level = HOUSE_HEARTH_SEEN;
   const int16_t starting_kindling = state.kindling;
   assert(house_apply_elapsed(&state, 2090));
   assert(state.kindling == starting_kindling + 3);
@@ -58,6 +59,7 @@ static void test_combined_gather_progress(void) {
 
   state.residents = 1;
   state.gatherers = 1;
+  state.hearth_level = HOUSE_HEARTH_SEEN;
   assert(house_apply_elapsed(&state, 2230));
   assert(state.kindling == 6);
   assert(state.remnants == 1);
@@ -75,10 +77,10 @@ static void test_hearth_decay(void) {
   assert(state.hearth_level == 2);
   assert(state.hearth_elapsed == 0);
 
-  house_apply_elapsed(&state, 2559);
+  house_apply_elapsed(&state, 2619);
   assert(state.hearth_level == 2);
-  assert(state.hearth_elapsed == 59);
-  assert(house_apply_elapsed(&state, 2560));
+  assert(state.hearth_elapsed == 119);
+  assert(house_apply_elapsed(&state, 2620));
   assert(state.hearth_level == 1);
   assert(state.hearth_elapsed == 0);
 
@@ -87,7 +89,7 @@ static void test_hearth_decay(void) {
   assert(state.hearth_level == 2);
   assert(state.hearth_elapsed == 0);
 
-  assert(house_apply_elapsed(&state, 2685));
+  assert(house_apply_elapsed(&state, 2865));
   assert(state.hearth_level == 0);
   assert(state.hearth_elapsed == 0);
   assert(house_state_is_valid(&state));
@@ -101,12 +103,22 @@ static void test_construction_and_assignments(void) {
   state.residents = 1;
   state.gatherers = 1;
 
+  state.hearth_level = HOUSE_HEARTH_SEEN;
+  assert(house_construct(&state, HOUSE_BUILD_GUEST_ROOM) ==
+         HOUSE_RESULT_LOCKED);
+  state.hearth_level = HOUSE_HEARTH_HELD;
+
   assert(house_construct(&state, HOUSE_BUILD_ANCHOR_LINE) ==
          HOUSE_RESULT_LOCKED);
   assert(house_construct(&state, HOUSE_BUILD_GUEST_ROOM) == HOUSE_RESULT_OK);
   assert(state.residents == 2);
   assert(state.listeners == 1);
   assert(house_construct(&state, HOUSE_BUILD_WORKTABLE) == HOUSE_RESULT_OK);
+  assert(house_construct(&state, HOUSE_BUILD_ANCHOR_LINE) ==
+         HOUSE_RESULT_LOCKED);
+  assert(house_assign(&state, HOUSE_ROLE_GATHERER) == HOUSE_RESULT_LOCKED);
+
+  state.hearth_level = HOUSE_HEARTH_SHARED;
   assert(house_construct(&state, HOUSE_BUILD_ANCHOR_LINE) == HOUSE_RESULT_OK);
   assert(house_has_build(&state, HOUSE_BUILD_ANCHOR_LINE));
 
@@ -126,6 +138,7 @@ static void test_first_expedition(void) {
                      (1U << HOUSE_BUILD_ANCHOR_LINE);
   state.rations = 2;
   state.clarity = 4;
+  state.hearth_level = HOUSE_HEARTH_SHARED;
 
   assert(house_start_expedition(&state) == HOUSE_RESULT_OK);
   assert(state.rations == 0 && state.clarity == 0);
@@ -155,6 +168,7 @@ static void test_retreat_and_failure(void) {
   state.built_mask = 1U << HOUSE_BUILD_ANCHOR_LINE;
   state.rations = 4;
   state.clarity = 8;
+  state.hearth_level = HOUSE_HEARTH_SHARED;
 
   assert(house_start_expedition(&state) == HOUSE_RESULT_OK);
   assert(house_expedition_advance(&state) == HOUSE_RESULT_OK);
@@ -178,6 +192,74 @@ static void test_invalid_inactive_expedition_state(void) {
   assert(!house_state_is_valid(&state));
 }
 
+static void test_fire_tier_restrictions(void) {
+  HouseState state;
+  house_state_init(&state, 7000);
+  state.kindling = 100;
+  state.remnants = 100;
+  state.rations = 2;
+  state.clarity = 4;
+  state.residents = 1;
+  state.gatherers = 1;
+  state.built_mask = (1U << HOUSE_BUILD_WORKTABLE) |
+                     (1U << HOUSE_BUILD_ANCHOR_LINE);
+
+  assert(house_search(&state) == HOUSE_RESULT_OK);
+  const int16_t cold_kindling = state.kindling;
+  assert(!house_apply_elapsed(&state, 7030));
+  assert(state.kindling == cold_kindling);
+  assert(house_prepare_ration(&state) == HOUSE_RESULT_LOCKED);
+  assert(house_assign(&state, HOUSE_ROLE_LISTENER) == HOUSE_RESULT_LOCKED);
+  assert(!house_can_expedition(&state));
+  assert(house_start_expedition(&state) == HOUSE_RESULT_LOCKED);
+
+  state.hearth_level = HOUSE_HEARTH_SEEN;
+  assert(house_apply_elapsed(&state, 7060));
+  assert(state.kindling == cold_kindling + 1);
+
+  state.hearth_level = HOUSE_HEARTH_HELD;
+  assert(house_prepare_ration(&state) == HOUSE_RESULT_OK);
+  assert(house_assign(&state, HOUSE_ROLE_LISTENER) == HOUSE_RESULT_LOCKED);
+
+  state.rations = 2;
+  state.clarity = 4;
+  state.hearth_level = HOUSE_HEARTH_SHARED;
+  assert(house_assign(&state, HOUSE_ROLE_LISTENER) == HOUSE_RESULT_OK);
+  assert(house_can_expedition(&state));
+  assert(house_state_is_valid(&state));
+}
+
+static void test_guest_production_stops_when_fire_becomes_unseen(void) {
+  HouseState state;
+  house_state_init(&state, 8000);
+  state.hearth_level = HOUSE_HEARTH_SEEN;
+  state.residents = 1;
+  state.gatherers = 1;
+  const int16_t starting_kindling = state.kindling;
+
+  assert(house_apply_elapsed(&state, 8150));
+  assert(state.hearth_level == HOUSE_HEARTH_LIT);
+  assert(state.kindling == starting_kindling + 4);
+  assert(state.gather_elapsed == 0);
+  assert(house_state_is_valid(&state));
+}
+
+static void test_active_expedition_survives_fire_drop(void) {
+  HouseState state;
+  house_state_init(&state, 9000);
+  state.hearth_level = HOUSE_HEARTH_SHARED;
+  state.built_mask = 1U << HOUSE_BUILD_ANCHOR_LINE;
+  state.rations = 2;
+  state.clarity = 4;
+
+  assert(house_start_expedition(&state) == HOUSE_RESULT_OK);
+  state.hearth_level = 0;
+  assert(house_expedition_advance(&state) == HOUSE_RESULT_OK);
+  assert(house_expedition_retreat(&state) == HOUSE_RESULT_OK);
+  assert(!state.expedition_active);
+  assert(house_state_is_valid(&state));
+}
+
 int main(void) {
   test_opening_and_first_guest();
   test_search_and_elapsed_production();
@@ -187,6 +269,9 @@ int main(void) {
   test_first_expedition();
   test_retreat_and_failure();
   test_invalid_inactive_expedition_state();
+  test_fire_tier_restrictions();
+  test_guest_production_stops_when_fire_becomes_unseen();
+  test_active_expedition_survives_fire_drop();
   puts("house_state tests passed");
   return 0;
 }

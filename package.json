@@ -1,7 +1,7 @@
 {
   "name": "the-house-at-the-end",
   "author": "hc",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "keywords": ["pebble-app", "game"],
   "private": true,
   "dependencies": {},

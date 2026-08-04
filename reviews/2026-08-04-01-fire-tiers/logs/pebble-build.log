@@ -1,0 +1,13 @@
+Setting top to                           : /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end 
+Setting out to                           : /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build 
+Checking for program 'webpack'           : /home/oc/.local/share/pebble-sdk/SDKs/current/node_modules/.bin/webpack 
+Found Pebble SDK for emery in:           : /home/oc/.local/share/pebble-sdk/SDKs/current/sdk-core/pebble/emery 
+Checking for program 'gcc, cc'           : arm-none-eabi-gcc 
+Checking for program 'ar'                : arm-none-eabi-ar 
+Found Pebble SDK for basalt in:          : /home/oc/.local/share/pebble-sdk/SDKs/current/sdk-core/pebble/basalt 
+Checking for program 'gcc, cc'           : arm-none-eabi-gcc 
+Checking for program 'ar'                : arm-none-eabi-ar 
+'configure' finished successfully (0.039s)
+Waf: Entering directory `/home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build'
+Waf: Leaving directory `/home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build'
+'build' finished successfully (0.042s)

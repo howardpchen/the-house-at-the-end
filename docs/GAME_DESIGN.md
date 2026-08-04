@@ -56,10 +56,15 @@ the interface into an inventory spreadsheet.
 ## Refuge progression
 
 The hearth reveals the house gradually and attracts the first guest. Fire
-fizzles by one point per minute, including elapsed time while the app is closed,
-so kindling remains useful after the initial unlocks. Early construction opens
-a guest room, worktable, and anchor line. Later facilities improve production,
-mapping, equipment, recovery, and the Chronicle.
+fizzles by one point every two minutes, including elapsed time while the app is
+closed, so kindling remains useful after the initial unlocks. Fire 0 is Cold;
+only searching and feeding are available. Fire 2 is Seen and lets guests arrive
+and work. Fire 3 is Held and enables ordinary construction and crafting. Fire
+5 is Shared and enables guest reassignment, the anchor line, and new
+expeditions. Fire 4 extends the Held buffer without adding another unlock.
+Built rooms remain built when Fire falls, but their actions pause below the
+required tier. An expedition already underway can always be continued or
+retreated from.
 
 Guests are named characters, not anonymous population. Assignments describe
 their current contribution and can change at the house. Elapsed production is
@@ -114,9 +119,10 @@ line, not exclusive information.
 
 ## Current vertical slice
 
-Version 0.1.4 implements:
+Version 0.1.5 implements:
 
-- two-second room searches and a hearth that loses one Fire per minute;
+- two-second room searches and a hearth that loses one Fire every two minutes;
+- Fire-tier restrictions and named Cold, Lit, Seen, Held, and Shared states;
 - first guest arrival and two elapsed-time roles;
 - three foundational structures;
 - ration and clarity preparation;

@@ -224,6 +224,23 @@ static HomeItem prv_home_item_at(int16_t index) {
   return HOME_CHRONICLE;
 }
 
+static const char *prv_hearth_name(void) {
+  switch (s_state.hearth_level) {
+    case 0:
+      return "Cold";
+    case HOUSE_HEARTH_LIT:
+      return "Lit";
+    case HOUSE_HEARTH_SEEN:
+      return "Seen";
+    case HOUSE_HEARTH_HELD:
+    case 4:
+      return "Held";
+    case HOUSE_HEARTH_SHARED:
+      return "Shared";
+  }
+  return "Cold";
+}
+
 static int16_t prv_item_count(void) {
   switch (s_view) {
     case VIEW_HOME:
@@ -381,16 +398,33 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
         return;
       case HOME_WORKSHOP:
         snprintf(label, label_size, "Workshop");
-        snprintf(detail, detail_size, "Make the house more real.");
+        if (s_state.hearth_level < HOUSE_HEARTH_HELD) {
+          snprintf(detail, detail_size, "Needs Held Fire (3).");
+          *enabled = false;
+        } else {
+          snprintf(detail, detail_size, "Make the house more real.");
+        }
         return;
       case HOME_GUESTS:
         snprintf(label, label_size, "Guests");
-        snprintf(detail, detail_size, "%u here: %u gather, %u listen.",
-                 s_state.residents, s_state.gatherers, s_state.listeners);
+        if (s_state.hearth_level < HOUSE_HEARTH_SHARED) {
+          snprintf(detail, detail_size, "Needs Shared Fire (5).");
+          *enabled = false;
+        } else {
+          snprintf(detail, detail_size, "%u here: %u gather, %u listen.",
+                   s_state.residents, s_state.gatherers, s_state.listeners);
+        }
         return;
       case HOME_DOOR:
         snprintf(label, label_size, "Front door");
-        snprintf(detail, detail_size, "The anchor line disappears outward.");
+        if (!s_state.expedition_active &&
+            s_state.hearth_level < HOUSE_HEARTH_SHARED) {
+          snprintf(detail, detail_size, "Needs Shared Fire (5).");
+          *enabled = false;
+        } else {
+          snprintf(detail, detail_size,
+                   "The anchor line disappears outward.");
+        }
         return;
       case HOME_CHRONICLE:
         snprintf(label, label_size, "Chronicle");
@@ -405,14 +439,20 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
       snprintf(detail, detail_size, "+kindling; sometimes a remnant.");
     } else if (index == 1) {
       snprintf(label, label_size, "Feed hearth");
-      snprintf(detail, detail_size, "Costs 2 kindling. Stability %u/5.",
-               s_state.hearth_level);
-      *enabled = s_state.hearth_level < 5 && s_state.kindling >= 2;
+      snprintf(detail, detail_size, "2 kindling. %s Fire %u/5.",
+               prv_hearth_name(), s_state.hearth_level);
+      *enabled = s_state.hearth_level < HOUSE_HEARTH_MAX &&
+                 s_state.kindling >= 2;
     } else {
       snprintf(label, label_size, "Prepare ration");
-      snprintf(detail, detail_size, "Costs 1 kindling and 1 remnant.");
-      *enabled = house_has_build(&s_state, HOUSE_BUILD_WORKTABLE) &&
-                 s_state.kindling >= 1 && s_state.remnants >= 1;
+      if (s_state.hearth_level < HOUSE_HEARTH_HELD) {
+        snprintf(detail, detail_size, "Needs Held Fire (3).");
+        *enabled = false;
+      } else {
+        snprintf(detail, detail_size, "Costs 1 kindling and 1 remnant.");
+        *enabled = house_has_build(&s_state, HOUSE_BUILD_WORKTABLE) &&
+                   s_state.kindling >= 1 && s_state.remnants >= 1;
+      }
     }
     return;
   }
@@ -435,7 +475,14 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
     *enabled = !is_built &&
                s_state.kindling >= kindling &&
                s_state.remnants >= remnants;
-    if (build == HOUSE_BUILD_ANCHOR_LINE &&
+    if (s_state.hearth_level < HOUSE_HEARTH_HELD) {
+      *enabled = false;
+      snprintf(detail, detail_size, "Needs Held Fire (3).");
+    } else if (build == HOUSE_BUILD_ANCHOR_LINE &&
+               s_state.hearth_level < HOUSE_HEARTH_SHARED) {
+      *enabled = false;
+      snprintf(detail, detail_size, "Needs Shared Fire (5).");
+    } else if (build == HOUSE_BUILD_ANCHOR_LINE &&
         (!house_has_build(&s_state, HOUSE_BUILD_GUEST_ROOM) ||
          !house_has_build(&s_state, HOUSE_BUILD_WORKTABLE))) {
       *enabled = false;
@@ -445,6 +492,12 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
   }
 
   if (s_view == VIEW_GUESTS) {
+    if (s_state.hearth_level < HOUSE_HEARTH_SHARED) {
+      snprintf(label, label_size, "The guests wait");
+      snprintf(detail, detail_size, "Needs Shared Fire (5).");
+      *enabled = false;
+      return;
+    }
     if (index == 0) {
       snprintf(label, label_size, "More gatherers");
       snprintf(detail, detail_size, "%u gathering; kindling + remnants.",
@@ -465,8 +518,13 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
       snprintf(detail, detail_size, "The Crooked Hall still holds.");
     } else {
       snprintf(label, label_size, "Enter the Drift");
-      snprintf(detail, detail_size, "Load 2 rations and 4 clarity.");
-      *enabled = house_can_expedition(&s_state);
+      if (s_state.hearth_level < HOUSE_HEARTH_SHARED) {
+        snprintf(detail, detail_size, "Needs Shared Fire (5).");
+        *enabled = false;
+      } else {
+        snprintf(detail, detail_size, "Load 2 rations and 4 clarity.");
+        *enabled = house_can_expedition(&s_state);
+      }
     }
     return;
   }
@@ -868,7 +926,7 @@ static void prv_debug_adjust(int direction) {
       break;
     case DEBUG_FIRE:
       s_state.hearth_level = (uint8_t)prv_adjusted_value(
-          s_state.hearth_level, direction, 0, 5);
+          s_state.hearth_level, direction, 0, HOUSE_HEARTH_MAX);
       s_state.hearth_elapsed = 0;
       break;
     case DEBUG_GUESTS: {
