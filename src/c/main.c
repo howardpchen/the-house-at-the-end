@@ -11,8 +11,8 @@
 #define PERSIST_KEY_STATE 1
 #define MIN_SUPPORTED_STATE_SCHEMA 1
 #define NOTICE_DURATION_MS 4200
-#define SEARCH_DURATION_MS 2000
-#define SEARCH_UPDATE_MS 100
+#define TIMED_ACTION_DURATION_MS 2000
+#define TIMED_ACTION_UPDATE_MS 100
 #define DEBUG_LONG_CLICK_MS 1000
 #define DEBUG_RESOURCE_STEP 10
 
@@ -50,6 +50,12 @@ typedef enum {
   DEBUG_ITEM_COUNT
 } DebugItem;
 
+typedef enum {
+  TIMED_ACTION_NONE = 0,
+  TIMED_ACTION_SEARCH,
+  TIMED_ACTION_FEED_HEARTH
+} TimedAction;
+
 typedef struct {
   uint16_t schema;
   uint16_t state_size;
@@ -65,14 +71,14 @@ _Static_assert(sizeof(PersistedState) <= 256,
 static Window *s_window;
 static Layer *s_canvas;
 static AppTimer *s_notice_timer;
-static AppTimer *s_search_timer;
+static AppTimer *s_action_timer;
 static HouseState s_state;
 static AppView s_view;
 static AppView s_debug_return_view;
 static DebugItem s_debug_item;
 static int16_t s_selected;
-static uint16_t s_search_progress_ms;
-static bool s_searching;
+static uint16_t s_action_progress_ms;
+static TimedAction s_timed_action;
 static char s_notice[72];
 
 static const GColor s_color_background = PBL_IF_COLOR_ELSE(GColorOxfordBlue,
@@ -629,13 +635,15 @@ static void prv_draw_list(GContext *ctx, GRect bounds, int16_t top) {
                   GTextAlignmentLeft);
   }
 
-  if (s_searching) {
+  if (s_timed_action != TIMED_ACTION_NONE) {
     const int16_t bar_width = bounds.size.w - 20;
     const GRect bar = GRect(10, bounds.size.h - 14, bar_width, 8);
     const int16_t fill_width =
-        (int16_t)((bar_width - 4) * s_search_progress_ms /
-                  SEARCH_DURATION_MS);
-    prv_draw_text(ctx, "Searching rooms...",
+        (int16_t)((bar_width - 4) * s_action_progress_ms /
+                  TIMED_ACTION_DURATION_MS);
+    const char *progress_text = s_timed_action == TIMED_ACTION_SEARCH
+        ? "Searching rooms..." : "Feeding hearth...";
+    prv_draw_text(ctx, progress_text,
                   fonts_get_system_font(FONT_KEY_GOTHIC_18),
                   s_color_accent,
                   GRect(5, bounds.size.h - 42, bounds.size.w - 10, 26),
@@ -763,42 +771,62 @@ static void prv_show_result(HouseResult result, const char *success) {
   }
 }
 
-static void prv_search_tick(void *context) {
+static void prv_timed_action_tick(void *context) {
   (void)context;
-  s_search_timer = NULL;
-  const uint16_t next = s_search_progress_ms + SEARCH_UPDATE_MS;
-  s_search_progress_ms = next > SEARCH_DURATION_MS
-      ? SEARCH_DURATION_MS : next;
+  s_action_timer = NULL;
+  const uint16_t next = s_action_progress_ms + TIMED_ACTION_UPDATE_MS;
+  s_action_progress_ms = next > TIMED_ACTION_DURATION_MS
+      ? TIMED_ACTION_DURATION_MS : next;
 
-  if (s_search_progress_ms >= SEARCH_DURATION_MS) {
-    s_searching = false;
-    const int16_t before = s_state.remnants;
-    const HouseResult result = house_search(&s_state);
-    prv_show_result(result, s_state.remnants > before
-        ? "A remnant beneath the boards." : "Dry wood. Still useful.");
+  if (s_action_progress_ms >= TIMED_ACTION_DURATION_MS) {
+    const TimedAction completed_action = s_timed_action;
+    s_timed_action = TIMED_ACTION_NONE;
+    if (completed_action == TIMED_ACTION_SEARCH) {
+      const int16_t before = s_state.remnants;
+      const HouseResult result = house_search(&s_state);
+      prv_show_result(result, s_state.remnants > before
+          ? "A remnant beneath the boards." : "Dry wood. Still useful.");
+    } else {
+      const uint8_t before = s_state.residents;
+      const HouseResult result = house_tend_hearth(&s_state);
+      prv_show_result(result, s_state.residents > before
+          ? "Someone knocks at the door." : "The room holds its shape.");
+    }
     prv_save();
     return;
   }
 
   layer_mark_dirty(s_canvas);
-  s_search_timer = app_timer_register(SEARCH_UPDATE_MS, prv_search_tick, NULL);
-  if (!s_search_timer) {
-    s_searching = false;
-    prv_show_notice("The room will not hold still.");
+  s_action_timer = app_timer_register(TIMED_ACTION_UPDATE_MS,
+                                      prv_timed_action_tick, NULL);
+  if (!s_action_timer) {
+    s_timed_action = TIMED_ACTION_NONE;
+    prv_show_notice("The moment will not hold.");
   }
 }
 
-static void prv_start_search(void) {
-  if (s_searching) {
+static void prv_start_timed_action(TimedAction action) {
+  if (s_timed_action != TIMED_ACTION_NONE) {
     return;
   }
+  if (action == TIMED_ACTION_FEED_HEARTH) {
+    if (s_state.hearth_level >= HOUSE_HEARTH_MAX) {
+      prv_show_result(HOUSE_RESULT_AT_LIMIT, "");
+      return;
+    }
+    if (s_state.kindling < 2) {
+      prv_show_result(HOUSE_RESULT_NO_RESOURCES, "");
+      return;
+    }
+  }
   prv_clear_notice();
-  s_search_progress_ms = 0;
-  s_searching = true;
-  s_search_timer = app_timer_register(SEARCH_UPDATE_MS, prv_search_tick, NULL);
-  if (!s_search_timer) {
-    s_searching = false;
-    prv_show_notice("The room will not hold still.");
+  s_action_progress_ms = 0;
+  s_timed_action = action;
+  s_action_timer = app_timer_register(TIMED_ACTION_UPDATE_MS,
+                                      prv_timed_action_tick, NULL);
+  if (!s_action_timer) {
+    s_timed_action = TIMED_ACTION_NONE;
+    prv_show_notice("The moment will not hold.");
     return;
   }
   layer_mark_dirty(s_canvas);
@@ -826,13 +854,11 @@ static void prv_activate_home(void) {
 
 static void prv_activate_hearth(void) {
   if (s_selected == 0) {
-    prv_start_search();
+    prv_start_timed_action(TIMED_ACTION_SEARCH);
     return;
   } else if (s_selected == 1) {
-    const uint8_t before = s_state.residents;
-    const HouseResult result = house_tend_hearth(&s_state);
-    prv_show_result(result, s_state.residents > before
-        ? "Someone knocks at the door." : "The room holds its shape.");
+    prv_start_timed_action(TIMED_ACTION_FEED_HEARTH);
+    return;
   } else {
     prv_show_result(house_prepare_ration(&s_state),
                     "A ration wrapped and ready.");
@@ -1015,7 +1041,7 @@ static void prv_confirm_debug_reset(void) {
 static void prv_select_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer;
   (void)context;
-  if (s_searching) {
+  if (s_timed_action != TIMED_ACTION_NONE) {
     return;
   }
   switch (s_view) {
@@ -1057,7 +1083,7 @@ static void prv_select_click(ClickRecognizerRef recognizer, void *context) {
 static void prv_up_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer;
   (void)context;
-  if (s_searching) {
+  if (s_timed_action != TIMED_ACTION_NONE) {
     return;
   }
   if (s_view == VIEW_DEBUG_EDIT) {
@@ -1073,7 +1099,7 @@ static void prv_up_click(ClickRecognizerRef recognizer, void *context) {
 static void prv_down_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer;
   (void)context;
-  if (s_searching) {
+  if (s_timed_action != TIMED_ACTION_NONE) {
     return;
   }
   if (s_view == VIEW_DEBUG_EDIT) {
@@ -1089,7 +1115,7 @@ static void prv_down_click(ClickRecognizerRef recognizer, void *context) {
 static void prv_back_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer;
   (void)context;
-  if (s_searching) {
+  if (s_timed_action != TIMED_ACTION_NONE) {
     return;
   }
   if (s_view == VIEW_DEBUG_EDIT || s_view == VIEW_DEBUG_RESET) {
@@ -1111,7 +1137,8 @@ static void prv_select_long_click(ClickRecognizerRef recognizer,
                                   void *context) {
   (void)recognizer;
   (void)context;
-  if (s_searching || s_view == VIEW_DEBUG || s_view == VIEW_DEBUG_EDIT ||
+  if (s_timed_action != TIMED_ACTION_NONE || s_view == VIEW_DEBUG ||
+      s_view == VIEW_DEBUG_EDIT ||
       s_view == VIEW_DEBUG_RESET) {
     return;
   }
@@ -1176,9 +1203,9 @@ static void prv_init(void) {
 
 static void prv_deinit(void) {
   tick_timer_service_unsubscribe();
-  if (s_search_timer) {
-    app_timer_cancel(s_search_timer);
-    s_search_timer = NULL;
+  if (s_action_timer) {
+    app_timer_cancel(s_action_timer);
+    s_action_timer = NULL;
   }
   if (s_notice_timer) {
     app_timer_cancel(s_notice_timer);

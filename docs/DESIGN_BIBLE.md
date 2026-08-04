@@ -11,14 +11,14 @@
 - Platform: PebbleOS native C
 - Primary targets: Basalt / Pebble Time Steel and Emery / Pebble Time 2
 - Initial language: English
-- Current implementation: version 0.1.6 vertical slice
+- Current implementation: version 0.1.7 vertical slice
 - Bible status: complete direction for the classic campaign; numerical balance
   remains provisional until physical-watch testing
 - Canonical review copy: this file and its synchronized Obsidian copy
 
 The labels used throughout are:
 
-- **Implemented:** present in version 0.1.6.
+- **Implemented:** present in version 0.1.7.
 - **Planned:** committed campaign direction, not yet implemented.
 - **Tentative:** a useful option that still needs a product decision or test.
 
@@ -240,8 +240,9 @@ at 999 or below. Overflow always saturates rather than wraps.
 - Gatherers: +1 kindling each per 30 seconds.
 - Every third kindling gathered across room searches and gatherers also yields
   +1 remnant.
-- Feed hearth: costs 2 kindling; maximum prototype level is 5; Fire loses one
-  level per accumulated two minutes and feeding resets that countdown.
+- Feed hearth: two-second progress action; costs 2 kindling; maximum prototype
+  level is 5; Fire loses one level per accumulated two minutes and feeding
+  resets that countdown.
 - Fire 0 is Cold; Fire 1 is Lit; Fire 2 is Seen and enables guest arrival and
   production; Fire 3 and 4 are Held and enable ordinary construction and ration
   preparation; Fire 5 is Shared and enables guest assignment, the anchor line,

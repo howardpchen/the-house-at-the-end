@@ -119,9 +119,10 @@ line, not exclusive information.
 
 ## Current vertical slice
 
-Version 0.1.6 implements:
+Version 0.1.7 implements:
 
-- two-second room searches and a hearth that loses one Fire every two minutes;
+- two-second room searches and hearth-feeding actions, plus a hearth that loses
+  one Fire every two minutes;
 - Fire-tier restrictions and named Cold, Lit, Seen, Held, and Shared states;
 - a large two-row house-status grid for Fire, guests, and all four resources;
 - first guest arrival and two elapsed-time roles;

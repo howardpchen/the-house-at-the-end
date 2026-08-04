@@ -15,7 +15,8 @@ The current vertical slice includes:
 
 - native Pebble C support for Basalt and Emery;
 - a button-driven house, workshop, guest, and expedition interface;
-- two-second room searches and a hearth that loses one Fire every two minutes;
+- two-second room searches and hearth feeds, plus a hearth that loses one Fire
+  every two minutes;
 - Fire tiers that gate guest production, construction, crafting, guest
   assignments, the anchor line, and new expeditions;
 - travelers who passively recover resources according to their assigned role;
@@ -37,8 +38,9 @@ campaign, systems, technical budgets, and roadmap.
 - **Hold SELECT for one second:** open the testing menu.
 - **BACK:** return to the previous section; from the house, exit the app.
 
-Searching a room takes two seconds and shows a progress bar. Buttons are held
-until the search completes, then its reward is granted once.
+Searching a room and feeding the hearth each take two seconds and show a
+progress bar. Buttons are held until the action completes, then its cost and
+result are applied once.
 
 Temporary story and action-result text uses the larger 24-pixel Gothic font and
 remains visible for 4.2 seconds. Ordinary selected-action descriptions remain
