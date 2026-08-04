@@ -1,0 +1,19 @@
+Pebble Time 2 CloudPebble update
+Date: 2026-08-03T19:57:42-04:00
+Command: pebble install --cloudpebble
+Supervisor unit: house-font-cloud-20260803-195742.service
+Recorded status: succeeded
+Recorded exit code: 0
+Postcondition: App install succeeded.
+PBW: build/the-house-at-the-end.pbw
+SHA-256: 0d118478689b9c8ab1a732fc5e745975ec6719d79069d29e0cfb24adc126160c
+
+Connection sequence:
+- Connected to CloudPebble proxy websocket.
+- CloudPebble proxy authentication succeeded.
+- Phone connection status: Connected.
+- Installing app...
+- App install succeeded.
+
+The unchanged application UUID makes this an in-place update. Physical font
+readability still requires hands-on confirmation.

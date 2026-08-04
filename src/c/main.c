@@ -269,11 +269,15 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
     int16_t kindling = 0;
     int16_t remnants = 0;
     house_build_cost(build, &kindling, &remnants);
-    snprintf(label, label_size, "%s%s", names[index],
-             house_has_build(&s_state, build) ? " [built]" : "");
-    snprintf(detail, detail_size, "Costs %d kindling, %d remnants.",
-             kindling, remnants);
-    *enabled = !house_has_build(&s_state, build) &&
+    const bool is_built = house_has_build(&s_state, build);
+    snprintf(label, label_size, "%s", names[index]);
+    if (is_built) {
+      snprintf(detail, detail_size, "Built.");
+    } else {
+      snprintf(detail, detail_size, "Costs %d kindling, %d remnants.",
+               kindling, remnants);
+    }
+    *enabled = !is_built &&
                s_state.kindling >= kindling &&
                s_state.remnants >= remnants;
     if (build == HOUSE_BUILD_ANCHOR_LINE &&
@@ -349,8 +353,8 @@ static void prv_draw_text(GContext *ctx, const char *text, GFont font,
 static void prv_draw_list(GContext *ctx, GRect bounds, int16_t top) {
   const int16_t count = prv_item_count();
   const bool is_large = bounds.size.w >= 200;
-  const int16_t row_height = is_large ? 29 : 25;
-  const int16_t visible = is_large ? 4 : 3;
+  const int16_t row_height = is_large ? 34 : 32;
+  const int16_t visible = is_large ? 3 : 1;
   int16_t first = s_selected - visible / 2;
   if (first < 0) {
     first = 0;
@@ -379,7 +383,7 @@ static void prv_draw_list(GContext *ctx, GRect bounds, int16_t top) {
     const GColor color = selected ? s_color_background
                                   : (enabled ? s_color_text : s_color_locked);
     const GFont font = fonts_get_system_font(selected
-        ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_18);
+        ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_24);
     prv_draw_text(ctx, label, font, color,
                   GRect(9, y - 1, bounds.size.w - 18, row_height),
                   GTextAlignmentLeft);
@@ -392,9 +396,11 @@ static void prv_draw_list(GContext *ctx, GRect bounds, int16_t top) {
                 &enabled);
   (void)enabled;
   const char *footer = s_notice[0] ? s_notice : detail;
-  prv_draw_text(ctx, footer, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+  const int16_t footer_height = is_large ? 43 : 42;
+  prv_draw_text(ctx, footer, fonts_get_system_font(FONT_KEY_GOTHIC_18),
                 s_notice[0] ? s_color_accent : s_color_muted,
-                GRect(5, bounds.size.h - 31, bounds.size.w - 10, 30),
+                GRect(5, bounds.size.h - footer_height,
+                      bounds.size.w - 10, footer_height),
                 GTextAlignmentCenter);
 }
 
@@ -404,36 +410,49 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 
   prv_draw_text(ctx, prv_title(),
-                fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-                s_color_accent, GRect(4, 0, bounds.size.w - 8, 24),
+                fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+                s_color_accent, GRect(4, 0, bounds.size.w - 8, 30),
                 GTextAlignmentCenter);
 
+  const bool is_large = bounds.size.w >= 200;
   char status[96];
   if (s_view == VIEW_EXPEDITION || s_view == VIEW_ENCOUNTER) {
-    snprintf(status, sizeof(status),
-             "Step %u/4   C:%u   R:%u\nResolve:%u   Carry:%u",
-             s_state.expedition_step, s_state.expedition_clarity,
-             s_state.expedition_rations, s_state.expedition_resolve,
-             s_state.cargo_remnants);
+    if (is_large) {
+      snprintf(status, sizeof(status),
+               "Step %u/4   C:%u   R:%u\nResolve:%u   Carry:%u",
+               s_state.expedition_step, s_state.expedition_clarity,
+               s_state.expedition_rations, s_state.expedition_resolve,
+               s_state.cargo_remnants);
+    } else {
+      snprintf(status, sizeof(status),
+               "Step %u/4\nC:%u R:%u Resolve:%u\nCarry:%u",
+               s_state.expedition_step, s_state.expedition_clarity,
+               s_state.expedition_rations, s_state.expedition_resolve,
+               s_state.cargo_remnants);
+    }
   } else if (s_view == VIEW_CHRONICLE) {
     snprintf(status, sizeof(status),
-             "The red door was labeled beneath the paint.\n"
-             "The same mark waits below the hearth.");
+             "Red door: a buried name.\n"
+             "Mark below the hearth.");
   } else {
-    snprintf(status, sizeof(status),
-             "Fire %u/5   Guests %u\nK:%d   M:%d   R:%d   C:%d",
-             s_state.hearth_level, s_state.residents, s_state.kindling,
-             s_state.remnants, s_state.rations, s_state.clarity);
+    if (is_large) {
+      snprintf(status, sizeof(status),
+               "Fire %u/5   Guests %u\nK:%d  M:%d  R:%d  C:%d",
+               s_state.hearth_level, s_state.residents, s_state.kindling,
+               s_state.remnants, s_state.rations, s_state.clarity);
+    } else {
+      snprintf(status, sizeof(status),
+               "Fire %u/5  Guests %u\nK:%d  M:%d\nR:%d  C:%d",
+               s_state.hearth_level, s_state.residents, s_state.kindling,
+               s_state.remnants, s_state.rations, s_state.clarity);
+    }
   }
 
-  prv_draw_text(ctx, status, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                s_color_text, GRect(5, 24, bounds.size.w - 10,
-                                    s_view == VIEW_CHRONICLE ? 66 : 42),
+  const int16_t status_height = is_large ? 46 : 62;
+  prv_draw_text(ctx, status, fonts_get_system_font(FONT_KEY_GOTHIC_18),
+                s_color_text, GRect(5, 28, bounds.size.w - 10, status_height),
                 GTextAlignmentCenter);
-  const bool is_large = bounds.size.w >= 200;
-  const int16_t list_top = s_view == VIEW_CHRONICLE
-      ? (is_large ? 112 : 93)
-      : (is_large ? 78 : 68);
+  const int16_t list_top = is_large ? 78 : 90;
   prv_draw_list(ctx, bounds, list_top);
 }
 

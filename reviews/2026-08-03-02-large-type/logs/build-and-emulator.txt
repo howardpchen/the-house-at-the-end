@@ -1,0 +1,25 @@
+Large type build and emulator verification
+Date: 2026-08-03
+Version: 0.1.1
+
+Host tests:
+- Command: ./scripts/test-game-state.sh
+- Exit code: 0
+- Result: house_state tests passed
+
+Universal build:
+- Command: pebble build
+- Exit code: 0
+- SDK: 4.17
+- Emery RAM footprint: 7,808 bytes
+- Basalt RAM footprint: 7,808 bytes
+- Resource size: 4,092 bytes per platform
+- PBW: build/the-house-at-the-end.pbw
+- SHA-256: 0d118478689b9c8ab1a732fc5e745975ec6719d79069d29e0cfb24adc126160c
+
+Emulator verification:
+- Emery install: exit 0; App install succeeded.
+- Basalt install: exit 0; App install succeeded.
+- Reviewed states: home, workshop, Front Door selection, and Chronicle.
+- Result: 24-pixel titles/actions and 18-pixel status/details fit without
+  clipping in the captured states.
