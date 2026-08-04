@@ -132,11 +132,14 @@ Version 0.1.8 implements:
 - Chronicle completion;
 - versioned, checksummed persistence;
 - host-side deterministic rules tests;
-- successful complete emulator progression on Basalt and Emery.
+- successful complete emulator progression on Basalt and Emery;
 - a long-SELECT testing menu for resources, Fire, guests, assignments, and
   confirmed game reset.
 
-Physical Time Steel and Time 2 validation remains outstanding.
+Reviewed builds install successfully on physical Time 2 through CloudPebble.
+Physical Time Steel validation remains outstanding, and interaction feel,
+readability, vibration, power use, and extended reliability still require
+wearer testing on the applicable hardware.
 
 ## Full-game direction
 

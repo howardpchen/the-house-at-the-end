@@ -895,8 +895,8 @@ is below 2 KB, leaving migration and settings headroom.
 - migrate explicitly or offer a clear reset when migration is impossible;
 - uninstalling the app removes watch-side data, as expected on PebbleOS.
 
-The version 0.1.0 single-record save is valid for the vertical slice and stays
-until the segmented model is needed.
+The single-record save introduced in version 0.1.0 remains valid through version
+0.1.8 and stays until the segmented model is needed.
 
 ## 20. Platform and memory budgets
 
@@ -907,15 +907,18 @@ Documented platform limits:
 - Both: four buttons, accelerometer/IMU capability, rectangular color display.
 - Persistent storage: 4 KB total, 256 bytes per value.
 
-Version 0.1.0 measured evidence:
+Version 0.1.8 measured evidence:
 
-- universal PBW: 25,573 bytes;
+- universal PBW: 33,031 bytes;
 - resources: 4,092 bytes per platform;
-- reported application RAM footprint: 7,758 bytes;
-- reported free Basalt heap: 57,778 bytes;
-- reported free Emery heap: 123,314 bytes;
+- reported application RAM footprint: 11,497 bytes;
+- reported free Basalt heap: 54,039 bytes;
+- reported free Emery heap: 119,575 bytes;
 - host tests and clean SDK 4.17 build pass;
-- full first-memory progression passes in both emulators.
+- complete first-memory progression and current timed-action layouts pass across
+  Basalt and Emery emulator reviews;
+- the exact reviewed build installs on physical Time 2 through CloudPebble;
+- physical interaction feel and extended reliability remain wearer tests.
 
 ### Budget gates for the complete campaign
 
@@ -970,7 +973,9 @@ the authority for feel, power, vibration, and reliability.
 
 ## 22. Vertical slice definition
 
-Version 0.1.0 is the accepted technical vertical slice.
+Version 0.1.0 established the accepted technical vertical slice. Version 0.1.8
+retains that scope while incorporating the reviewed interaction and balance
+iterations documented above.
 
 It proves:
 
