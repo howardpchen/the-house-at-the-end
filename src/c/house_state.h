@@ -3,9 +3,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define HOUSE_STATE_SCHEMA 1
+#define HOUSE_STATE_SCHEMA 2
 #define HOUSE_RESOURCE_MAX 999
 #define HOUSE_ELAPSED_CAP_SECONDS (6 * 60 * 60)
+#define HOUSE_HEARTH_DECAY_SECONDS 60
 
 typedef enum {
   HOUSE_BUILD_GUEST_ROOM = 0,
@@ -59,6 +60,7 @@ typedef struct {
   uint8_t expedition_resolve;
   uint8_t encounter_strength;
   uint8_t cargo_remnants;
+  uint8_t hearth_elapsed;
 
   uint32_t story_flags;
   int64_t last_updated;

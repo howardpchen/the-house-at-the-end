@@ -44,6 +44,34 @@ static void test_search_and_elapsed_production(void) {
   assert(house_state_is_valid(&state));
 }
 
+static void test_hearth_decay(void) {
+  HouseState state;
+  house_state_init(&state, 2500);
+  state.kindling = 10;
+
+  assert(house_tend_hearth(&state) == HOUSE_RESULT_OK);
+  assert(house_tend_hearth(&state) == HOUSE_RESULT_OK);
+  assert(state.hearth_level == 2);
+  assert(state.hearth_elapsed == 0);
+
+  house_apply_elapsed(&state, 2559);
+  assert(state.hearth_level == 2);
+  assert(state.hearth_elapsed == 59);
+  assert(house_apply_elapsed(&state, 2560));
+  assert(state.hearth_level == 1);
+  assert(state.hearth_elapsed == 0);
+
+  state.hearth_elapsed = 50;
+  assert(house_tend_hearth(&state) == HOUSE_RESULT_OK);
+  assert(state.hearth_level == 2);
+  assert(state.hearth_elapsed == 0);
+
+  assert(house_apply_elapsed(&state, 2685));
+  assert(state.hearth_level == 0);
+  assert(state.hearth_elapsed == 0);
+  assert(house_state_is_valid(&state));
+}
+
 static void test_construction_and_assignments(void) {
   HouseState state;
   house_state_init(&state, 3000);
@@ -132,6 +160,7 @@ static void test_invalid_inactive_expedition_state(void) {
 int main(void) {
   test_opening_and_first_guest();
   test_search_and_elapsed_production();
+  test_hearth_decay();
   test_construction_and_assignments();
   test_first_expedition();
   test_retreat_and_failure();

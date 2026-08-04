@@ -1,0 +1,15 @@
+Host tests: PASS (`house_state tests passed`)
+SDK: Pebble Tool 5.0.39, active SDK 4.17
+Build: PASS, universal Basalt/Emery PBW created
+Emery emulator install: PASS (`App install succeeded`)
+Basalt emulator install: PASS (`App install succeeded`)
+Emery search layout: PASS
+Basalt search layout: PASS
+Basalt input lock during search: PASS
+Basalt foreground 60-second Fire decay: PASS
+Basalt closed-app 65-second Fire decay: PASS
+Schema-1 emulator save migration: PASS; resources and guest state preserved
+Time 2 CloudPebble install: PASS; exit code 0; `App install succeeded`
+
+Final PBW SHA-256:
+19e86544dae6426948f630ca72b0cebae94e1c46f9dacfb7f2d2ade175b65346

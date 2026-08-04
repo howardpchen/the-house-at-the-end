@@ -55,9 +55,11 @@ the interface into an inventory spreadsheet.
 
 ## Refuge progression
 
-The hearth reveals the house gradually and attracts the first guest. Early
-construction opens a guest room, worktable, and anchor line. Later facilities
-improve production, mapping, equipment, recovery, and the Chronicle.
+The hearth reveals the house gradually and attracts the first guest. Fire
+fizzles by one point per minute, including elapsed time while the app is closed,
+so kindling remains useful after the initial unlocks. Early construction opens
+a guest room, worktable, and anchor line. Later facilities improve production,
+mapping, equipment, recovery, and the Chronicle.
 
 Guests are named characters, not anonymous population. Assignments describe
 their current contribution and can change at the house. Elapsed production is
@@ -111,9 +113,9 @@ line, not exclusive information.
 
 ## Current vertical slice
 
-Version 0.1.0 implements:
+Version 0.1.2 implements:
 
-- house gathering and hearth stabilization;
+- two-second room searches and a hearth that loses one Fire per minute;
 - first guest arrival and two elapsed-time roles;
 - three foundational structures;
 - ration and clarity preparation;

@@ -11,14 +11,14 @@
 - Platform: PebbleOS native C
 - Primary targets: Basalt / Pebble Time Steel and Emery / Pebble Time 2
 - Initial language: English
-- Current implementation: version 0.1.0 vertical slice
+- Current implementation: version 0.1.2 vertical slice
 - Bible status: complete direction for the classic campaign; numerical balance
   remains provisional until physical-watch testing
 - Canonical review copy: this file and its synchronized Obsidian copy
 
 The labels used throughout are:
 
-- **Implemented:** present in version 0.1.0.
+- **Implemented:** present in version 0.1.2.
 - **Planned:** committed campaign direction, not yet implemented.
 - **Tentative:** a useful option that still needs a product decision or test.
 
@@ -236,8 +236,10 @@ at 999 or below. Overflow always saturates rather than wraps.
 
 ### 8.2 Implemented vertical-slice values
 
-- Search rooms: +1 kindling; every third search also yields +1 remnant.
-- Feed hearth: costs 2 kindling; maximum prototype level is 5.
+- Search rooms: two-second progress action; +1 kindling; every third search also
+  yields +1 remnant.
+- Feed hearth: costs 2 kindling; maximum prototype level is 5; Fire loses one
+  level per accumulated minute and feeding resets that minute's countdown.
 - Guest room: 8 kindling + 4 remnants.
 - Worktable: 6 kindling + 5 remnants.
 - Anchor line: 10 kindling + 8 remnants; requires the first two rooms.

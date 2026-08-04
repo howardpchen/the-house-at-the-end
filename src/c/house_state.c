@@ -47,7 +47,10 @@ bool house_state_is_valid(const HouseState *state) {
     return false;
   }
 
-  if (state->hearth_level > 5 || state->residents > 2 || state->memories > 1 ||
+  if (state->hearth_level > 5 ||
+      state->hearth_elapsed >= HOUSE_HEARTH_DECAY_SECONDS ||
+      (state->hearth_level == 0 && state->hearth_elapsed != 0) ||
+      state->residents > 2 || state->memories > 1 ||
       state->gatherers + state->listeners != state->residents ||
       state->built_mask >= BUILD_BIT(HOUSE_BUILD_COUNT)) {
     return false;
@@ -80,6 +83,25 @@ bool house_apply_elapsed(HouseState *state, int64_t now) {
   state->last_updated = now;
 
   bool changed = false;
+  if (state->hearth_level > 0) {
+    const uint32_t total = state->hearth_elapsed + (uint32_t)elapsed;
+    const uint32_t decay = total / HOUSE_HEARTH_DECAY_SECONDS;
+    if (decay >= state->hearth_level) {
+      state->hearth_level = 0;
+      state->hearth_elapsed = 0;
+      changed = true;
+    } else {
+      state->hearth_elapsed =
+          (uint8_t)(total % HOUSE_HEARTH_DECAY_SECONDS);
+      if (decay > 0) {
+        state->hearth_level -= (uint8_t)decay;
+        changed = true;
+      }
+    }
+  } else {
+    state->hearth_elapsed = 0;
+  }
+
   if (state->gatherers > 0) {
     const uint32_t total = state->gather_elapsed + (uint32_t)elapsed;
     const uint32_t cycles = total / 30U;
@@ -135,6 +157,7 @@ HouseResult house_tend_hearth(HouseState *state) {
 
   state->kindling -= 2;
   state->hearth_level++;
+  state->hearth_elapsed = 0;
   if (state->hearth_level >= 2 && state->residents == 0) {
     state->residents = 1;
     state->gatherers = 1;

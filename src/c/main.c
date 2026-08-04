@@ -9,7 +9,10 @@
 #include "house_state.h"
 
 #define PERSIST_KEY_STATE 1
+#define LEGACY_STATE_SCHEMA 1
 #define NOTICE_DURATION_MS 2200
+#define SEARCH_DURATION_MS 2000
+#define SEARCH_UPDATE_MS 100
 
 typedef enum {
   VIEW_HOME = 0,
@@ -37,15 +40,20 @@ typedef struct {
   uint32_t checksum;
 } PersistedState;
 
+_Static_assert(sizeof(HouseState) == 40,
+               "Schema 1 migration requires the original state size");
 _Static_assert(sizeof(PersistedState) <= 256,
                "The save record must fit one Pebble persistence value");
 
 static Window *s_window;
 static Layer *s_canvas;
 static AppTimer *s_notice_timer;
+static AppTimer *s_search_timer;
 static HouseState s_state;
 static AppView s_view;
 static int16_t s_selected;
+static uint16_t s_search_progress_ms;
+static bool s_searching;
 static char s_notice[72];
 
 static const GColor s_color_background = PBL_IF_COLOR_ELSE(GColorOxfordBlue,
@@ -98,14 +106,26 @@ static bool prv_load(void) {
 
   const uint32_t expected =
       prv_checksum(&record, offsetof(PersistedState, checksum));
-  if (record.schema != HOUSE_STATE_SCHEMA ||
+  const bool is_legacy = record.schema == LEGACY_STATE_SCHEMA;
+  if ((!is_legacy && record.schema != HOUSE_STATE_SCHEMA) ||
       record.state_size != sizeof(HouseState) ||
-      record.checksum != expected || !house_state_is_valid(&record.state)) {
+      record.checksum != expected) {
     APP_LOG(APP_LOG_LEVEL_WARNING, "Ignoring invalid state record");
     return false;
   }
 
+  if (is_legacy) {
+    record.state.hearth_elapsed = 0;
+  }
+  if (!house_state_is_valid(&record.state)) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "Ignoring invalid game state");
+    return false;
+  }
+
   s_state = record.state;
+  if (is_legacy) {
+    prv_save();
+  }
   return true;
 }
 
@@ -389,6 +409,29 @@ static void prv_draw_list(GContext *ctx, GRect bounds, int16_t top) {
                   GTextAlignmentLeft);
   }
 
+  if (s_searching) {
+    const int16_t bar_width = bounds.size.w - 20;
+    const GRect bar = GRect(10, bounds.size.h - 14, bar_width, 8);
+    const int16_t fill_width =
+        (int16_t)((bar_width - 4) * s_search_progress_ms /
+                  SEARCH_DURATION_MS);
+    prv_draw_text(ctx, "Searching rooms...",
+                  fonts_get_system_font(FONT_KEY_GOTHIC_18),
+                  s_color_accent,
+                  GRect(5, bounds.size.h - 42, bounds.size.w - 10, 26),
+                  GTextAlignmentCenter);
+    graphics_context_set_stroke_color(ctx, s_color_accent);
+    graphics_draw_rect(ctx, bar);
+    if (fill_width > 0) {
+      graphics_context_set_fill_color(ctx, s_color_accent);
+      graphics_fill_rect(ctx,
+                         GRect(bar.origin.x + 2, bar.origin.y + 2,
+                               fill_width, bar.size.h - 4),
+                         0, GCornerNone);
+    }
+    return;
+  }
+
   char label[32];
   char detail[64];
   bool enabled = false;
@@ -485,6 +528,51 @@ static void prv_show_result(HouseResult result, const char *success) {
   }
 }
 
+static void prv_search_tick(void *context) {
+  (void)context;
+  s_search_timer = NULL;
+  const uint16_t next = s_search_progress_ms + SEARCH_UPDATE_MS;
+  s_search_progress_ms = next > SEARCH_DURATION_MS
+      ? SEARCH_DURATION_MS : next;
+
+  if (s_search_progress_ms >= SEARCH_DURATION_MS) {
+    s_searching = false;
+    const int16_t before = s_state.remnants;
+    const HouseResult result = house_search(&s_state);
+    prv_show_result(result, s_state.remnants > before
+        ? "A remnant beneath the boards." : "Dry wood. Still useful.");
+    prv_save();
+    return;
+  }
+
+  layer_mark_dirty(s_canvas);
+  s_search_timer = app_timer_register(SEARCH_UPDATE_MS, prv_search_tick, NULL);
+  if (!s_search_timer) {
+    s_searching = false;
+    prv_show_notice("The room will not hold still.");
+  }
+}
+
+static void prv_start_search(void) {
+  if (s_searching) {
+    return;
+  }
+  if (s_notice_timer) {
+    app_timer_cancel(s_notice_timer);
+    s_notice_timer = NULL;
+  }
+  s_notice[0] = '\0';
+  s_search_progress_ms = 0;
+  s_searching = true;
+  s_search_timer = app_timer_register(SEARCH_UPDATE_MS, prv_search_tick, NULL);
+  if (!s_search_timer) {
+    s_searching = false;
+    prv_show_notice("The room will not hold still.");
+    return;
+  }
+  layer_mark_dirty(s_canvas);
+}
+
 static void prv_activate_home(void) {
   switch (prv_home_item_at(s_selected)) {
     case HOME_HEARTH:
@@ -507,10 +595,8 @@ static void prv_activate_home(void) {
 
 static void prv_activate_hearth(void) {
   if (s_selected == 0) {
-    const int16_t before = s_state.remnants;
-    const HouseResult result = house_search(&s_state);
-    prv_show_result(result, s_state.remnants > before
-        ? "A remnant beneath the boards." : "Dry wood. Still useful.");
+    prv_start_search();
+    return;
   } else if (s_selected == 1) {
     const uint8_t before = s_state.residents;
     const HouseResult result = house_tend_hearth(&s_state);
@@ -613,6 +699,9 @@ static void prv_activate_encounter(void) {
 static void prv_select_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer;
   (void)context;
+  if (s_searching) {
+    return;
+  }
   switch (s_view) {
     case VIEW_HOME:
       prv_activate_home();
@@ -644,6 +733,9 @@ static void prv_select_click(ClickRecognizerRef recognizer, void *context) {
 static void prv_up_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer;
   (void)context;
+  if (s_searching) {
+    return;
+  }
   if (s_selected > 0) {
     s_selected--;
     layer_mark_dirty(s_canvas);
@@ -653,6 +745,9 @@ static void prv_up_click(ClickRecognizerRef recognizer, void *context) {
 static void prv_down_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer;
   (void)context;
+  if (s_searching) {
+    return;
+  }
   if (s_selected + 1 < prv_item_count()) {
     s_selected++;
     layer_mark_dirty(s_canvas);
@@ -662,6 +757,9 @@ static void prv_down_click(ClickRecognizerRef recognizer, void *context) {
 static void prv_back_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer;
   (void)context;
+  if (s_searching) {
+    return;
+  }
   if (s_view == VIEW_HOME) {
     window_stack_pop(true);
   } else if (s_view == VIEW_ENCOUNTER) {
@@ -727,6 +825,10 @@ static void prv_init(void) {
 
 static void prv_deinit(void) {
   tick_timer_service_unsubscribe();
+  if (s_search_timer) {
+    app_timer_cancel(s_search_timer);
+    s_search_timer = NULL;
+  }
   if (s_notice_timer) {
     app_timer_cancel(s_notice_timer);
     s_notice_timer = NULL;

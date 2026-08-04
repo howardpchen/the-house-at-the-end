@@ -15,7 +15,7 @@ The current vertical slice includes:
 
 - native Pebble C support for Basalt and Emery;
 - a button-driven house, workshop, guest, and expedition interface;
-- manual gathering and hearth stabilization;
+- two-second room searches and a hearth that loses one Fire per minute;
 - travelers who passively recover resources according to their assigned role;
 - three unlockable house improvements;
 - a supply-limited expedition and turn-based encounter;
@@ -33,6 +33,9 @@ campaign, systems, technical budgets, and roadmap.
 - **UP / DOWN:** move through the current list.
 - **SELECT:** enter a section or perform the highlighted action.
 - **BACK:** return to the previous section; from the house, exit the app.
+
+Searching a room takes two seconds and shows a progress bar. Buttons are held
+until the search completes, then its reward is granted once.
 
 The compact status line uses `K` for kindling, `M` for remnants, `R` for
 rations, and `C` for clarity. Selected-action descriptions spell out the full

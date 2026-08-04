@@ -39,9 +39,12 @@ must add explicit migration before the version number advances.
 ## Elapsed time
 
 The save timestamp is the source of truth. On launch and during foreground
-ticks, elapsed seconds are converted into gatherer/listener production. Catch-up
-is capped at six hours. Negative elapsed time is ignored. No background worker,
-wakeup event, phone service, or network connection is required.
+ticks, elapsed seconds are converted into gatherer/listener production and
+one-point-per-minute hearth decay. Feeding the hearth resets its partial-minute
+counter. Catch-up is capped at six hours. Negative elapsed time is ignored. No
+background worker, wakeup event, phone service, or network connection is
+required. Schema 2 reuses the schema-1 state padding byte for the hearth timer,
+so existing version-1 saves migrate without changing the record size.
 
 ## Review acceptance
 
