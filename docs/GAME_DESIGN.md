@@ -113,7 +113,7 @@ line, not exclusive information.
 
 ## Current vertical slice
 
-Version 0.1.2 implements:
+Version 0.1.3 implements:
 
 - two-second room searches and a hearth that loses one Fire per minute;
 - first guest arrival and two elapsed-time roles;

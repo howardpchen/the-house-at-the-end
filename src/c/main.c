@@ -10,7 +10,7 @@
 
 #define PERSIST_KEY_STATE 1
 #define LEGACY_STATE_SCHEMA 1
-#define NOTICE_DURATION_MS 2200
+#define NOTICE_DURATION_MS 4200
 #define SEARCH_DURATION_MS 2000
 #define SEARCH_UPDATE_MS 100
 
@@ -374,7 +374,8 @@ static void prv_draw_list(GContext *ctx, GRect bounds, int16_t top) {
   const int16_t count = prv_item_count();
   const bool is_large = bounds.size.w >= 200;
   const int16_t row_height = is_large ? 34 : 32;
-  const int16_t visible = is_large ? 3 : 1;
+  const bool showing_notice = s_notice[0] != '\0';
+  const int16_t visible = is_large ? (showing_notice ? 2 : 3) : 1;
   int16_t first = s_selected - visible / 2;
   if (first < 0) {
     first = 0;
@@ -438,10 +439,13 @@ static void prv_draw_list(GContext *ctx, GRect bounds, int16_t top) {
   prv_item_text(s_selected, label, sizeof(label), detail, sizeof(detail),
                 &enabled);
   (void)enabled;
-  const char *footer = s_notice[0] ? s_notice : detail;
-  const int16_t footer_height = is_large ? 43 : 42;
-  prv_draw_text(ctx, footer, fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                s_notice[0] ? s_color_accent : s_color_muted,
+  const char *footer = showing_notice ? s_notice : detail;
+  const int16_t footer_height = showing_notice
+      ? (is_large ? 64 : 90) : (is_large ? 43 : 42);
+  const GFont footer_font = fonts_get_system_font(showing_notice
+      ? FONT_KEY_GOTHIC_24 : FONT_KEY_GOTHIC_18);
+  prv_draw_text(ctx, footer, footer_font,
+                showing_notice ? s_color_accent : s_color_muted,
                 GRect(5, bounds.size.h - footer_height,
                       bounds.size.w - 10, footer_height),
                 GTextAlignmentCenter);
@@ -491,11 +495,15 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
     }
   }
 
-  const int16_t status_height = is_large ? 46 : 62;
-  prv_draw_text(ctx, status, fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                s_color_text, GRect(5, 28, bounds.size.w - 10, status_height),
-                GTextAlignmentCenter);
-  const int16_t list_top = is_large ? 78 : 90;
+  const bool compact_notice = !is_large && s_notice[0] != '\0';
+  if (!compact_notice) {
+    const int16_t status_height = is_large ? 46 : 62;
+    prv_draw_text(ctx, status, fonts_get_system_font(FONT_KEY_GOTHIC_18),
+                  s_color_text,
+                  GRect(5, 28, bounds.size.w - 10, status_height),
+                  GTextAlignmentCenter);
+  }
+  const int16_t list_top = compact_notice ? 34 : (is_large ? 78 : 90);
   prv_draw_list(ctx, bounds, list_top);
 }
 

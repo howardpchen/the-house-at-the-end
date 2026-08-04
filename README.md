@@ -37,6 +37,10 @@ campaign, systems, technical budgets, and roadmap.
 Searching a room takes two seconds and shows a progress bar. Buttons are held
 until the search completes, then its reward is granted once.
 
+Temporary story and action-result text uses the larger 24-pixel Gothic font and
+remains visible for 4.2 seconds. Ordinary selected-action descriptions remain
+compact.
+
 The compact status line uses `K` for kindling, `M` for remnants, `R` for
 rations, and `C` for clarity. Selected-action descriptions spell out the full
 resource names and costs.
