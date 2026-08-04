@@ -48,9 +48,10 @@ The testing menu can change resources in steps of 10, adjust Fire, guests, and
 guest assignments one step at a time, or reset the game through a separate
 confirmation screen. Test changes save immediately.
 
-The compact status line uses `K` for kindling, `M` for remnants, `R` for
-rations, and `C` for clarity. Selected-action descriptions spell out the full
-resource names and costs.
+The house status uses the larger 24-pixel Gothic font in a two-row grid. It
+shows Fire, guests, `K` for kindling, `M` for remnants, `R` for rations, and
+`C` for clarity. Selected-action descriptions spell out the full resource
+names and costs.
 
 Fire 0 is Cold; searching and feeding remain available. Fire 2 is Seen and
 allows guests to arrive and work. Fire 3 is Held and enables ordinary

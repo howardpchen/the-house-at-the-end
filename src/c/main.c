@@ -563,6 +563,32 @@ static void prv_draw_text(GContext *ctx, const char *text, GFont font,
                      alignment, NULL);
 }
 
+static void prv_draw_house_status(GContext *ctx, GRect bounds) {
+  const bool is_large = bounds.size.w >= 200;
+  const int16_t cell_width = bounds.size.w / 3;
+  const int16_t row_height = 27;
+  char cells[6][12];
+
+  snprintf(cells[0], sizeof(cells[0]), is_large ? "Fire %u/5" : "F%u/5",
+           s_state.hearth_level);
+  snprintf(cells[1], sizeof(cells[1]), is_large ? "Guest %u" : "G%u",
+           s_state.residents);
+  snprintf(cells[2], sizeof(cells[2]), "K%d", s_state.kindling);
+  snprintf(cells[3], sizeof(cells[3]), "M%d", s_state.remnants);
+  snprintf(cells[4], sizeof(cells[4]), "R%d", s_state.rations);
+  snprintf(cells[5], sizeof(cells[5]), "C%d", s_state.clarity);
+
+  const GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_24);
+  for (int16_t index = 0; index < 6; ++index) {
+    const int16_t column = index % 3;
+    const int16_t row = index / 3;
+    prv_draw_text(ctx, cells[index], font, s_color_text,
+                  GRect(column * cell_width, 28 + row * row_height,
+                        cell_width, row_height),
+                  GTextAlignmentCenter);
+  }
+}
+
 static void prv_draw_list(GContext *ctx, GRect bounds, int16_t top) {
   const int16_t count = prv_item_count();
   const bool is_large = bounds.size.w >= 200;
@@ -655,6 +681,9 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
                 GTextAlignmentCenter);
 
   const bool is_large = bounds.size.w >= 200;
+  const bool is_house_status = s_view != VIEW_EXPEDITION &&
+                               s_view != VIEW_ENCOUNTER &&
+                               s_view != VIEW_CHRONICLE;
   char status[96];
   if (s_view == VIEW_EXPEDITION || s_view == VIEW_ENCOUNTER) {
     if (is_large) {
@@ -690,13 +719,18 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
 
   const bool compact_notice = !is_large && s_notice[0] != '\0';
   if (!compact_notice) {
-    const int16_t status_height = is_large ? 46 : 62;
-    prv_draw_text(ctx, status, fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                  s_color_text,
-                  GRect(5, 28, bounds.size.w - 10, status_height),
-                  GTextAlignmentCenter);
+    if (is_house_status) {
+      prv_draw_house_status(ctx, bounds);
+    } else {
+      const int16_t status_height = is_large ? 46 : 62;
+      prv_draw_text(ctx, status, fonts_get_system_font(FONT_KEY_GOTHIC_18),
+                    s_color_text,
+                    GRect(5, 28, bounds.size.w - 10, status_height),
+                    GTextAlignmentCenter);
+    }
   }
-  const int16_t list_top = compact_notice ? 34 : (is_large ? 78 : 90);
+  const int16_t list_top = compact_notice ? 34
+      : (is_large ? (is_house_status ? 82 : 78) : 90);
   prv_draw_list(ctx, bounds, list_top);
 }
 

@@ -11,14 +11,14 @@
 - Platform: PebbleOS native C
 - Primary targets: Basalt / Pebble Time Steel and Emery / Pebble Time 2
 - Initial language: English
-- Current implementation: version 0.1.5 vertical slice
+- Current implementation: version 0.1.6 vertical slice
 - Bible status: complete direction for the classic campaign; numerical balance
   remains provisional until physical-watch testing
 - Canonical review copy: this file and its synchronized Obsidian copy
 
 The labels used throughout are:
 
-- **Implemented:** present in version 0.1.5.
+- **Implemented:** present in version 0.1.6.
 - **Planned:** committed campaign direction, not yet implemented.
 - **Tentative:** a useful option that still needs a product decision or test.
 
