@@ -9,10 +9,12 @@
 #include "house_state.h"
 
 #define PERSIST_KEY_STATE 1
-#define LEGACY_STATE_SCHEMA 1
+#define MIN_SUPPORTED_STATE_SCHEMA 1
 #define NOTICE_DURATION_MS 4200
 #define SEARCH_DURATION_MS 2000
 #define SEARCH_UPDATE_MS 100
+#define DEBUG_LONG_CLICK_MS 1000
+#define DEBUG_RESOURCE_STEP 10
 
 typedef enum {
   VIEW_HOME = 0,
@@ -22,7 +24,10 @@ typedef enum {
   VIEW_DOOR,
   VIEW_EXPEDITION,
   VIEW_ENCOUNTER,
-  VIEW_CHRONICLE
+  VIEW_CHRONICLE,
+  VIEW_DEBUG,
+  VIEW_DEBUG_EDIT,
+  VIEW_DEBUG_RESET
 } AppView;
 
 typedef enum {
@@ -33,6 +38,18 @@ typedef enum {
   HOME_CHRONICLE
 } HomeItem;
 
+typedef enum {
+  DEBUG_KINDLING = 0,
+  DEBUG_REMNANTS,
+  DEBUG_RATIONS,
+  DEBUG_CLARITY,
+  DEBUG_FIRE,
+  DEBUG_GUESTS,
+  DEBUG_GATHERERS,
+  DEBUG_RESET,
+  DEBUG_ITEM_COUNT
+} DebugItem;
+
 typedef struct {
   uint16_t schema;
   uint16_t state_size;
@@ -41,7 +58,7 @@ typedef struct {
 } PersistedState;
 
 _Static_assert(sizeof(HouseState) == 40,
-               "Schema 1 migration requires the original state size");
+               "In-place migrations require the original state size");
 _Static_assert(sizeof(PersistedState) <= 256,
                "The save record must fit one Pebble persistence value");
 
@@ -51,6 +68,8 @@ static AppTimer *s_notice_timer;
 static AppTimer *s_search_timer;
 static HouseState s_state;
 static AppView s_view;
+static AppView s_debug_return_view;
+static DebugItem s_debug_item;
 static int16_t s_selected;
 static uint16_t s_search_progress_ms;
 static bool s_searching;
@@ -106,16 +125,21 @@ static bool prv_load(void) {
 
   const uint32_t expected =
       prv_checksum(&record, offsetof(PersistedState, checksum));
-  const bool is_legacy = record.schema == LEGACY_STATE_SCHEMA;
-  if ((!is_legacy && record.schema != HOUSE_STATE_SCHEMA) ||
+  const bool is_supported = record.schema >= MIN_SUPPORTED_STATE_SCHEMA &&
+                            record.schema <= HOUSE_STATE_SCHEMA;
+  const bool needs_migration = record.schema != HOUSE_STATE_SCHEMA;
+  if (!is_supported ||
       record.state_size != sizeof(HouseState) ||
       record.checksum != expected) {
     APP_LOG(APP_LOG_LEVEL_WARNING, "Ignoring invalid state record");
     return false;
   }
 
-  if (is_legacy) {
+  if (record.schema == 1) {
     record.state.hearth_elapsed = 0;
+  }
+  if (needs_migration) {
+    record.state.gather_progress %= HOUSE_KINDLING_PER_REMNANT;
   }
   if (!house_state_is_valid(&record.state)) {
     APP_LOG(APP_LOG_LEVEL_WARNING, "Ignoring invalid game state");
@@ -123,7 +147,7 @@ static bool prv_load(void) {
   }
 
   s_state = record.state;
-  if (is_legacy) {
+  if (needs_migration) {
     prv_save();
   }
   return true;
@@ -146,6 +170,14 @@ static void prv_show_notice(const char *text) {
   s_notice_timer = app_timer_register(NOTICE_DURATION_MS,
                                       prv_notice_timeout, NULL);
   layer_mark_dirty(s_canvas);
+}
+
+static void prv_clear_notice(void) {
+  if (s_notice_timer) {
+    app_timer_cancel(s_notice_timer);
+    s_notice_timer = NULL;
+  }
+  s_notice[0] = '\0';
 }
 
 static void prv_set_view(AppView view) {
@@ -205,7 +237,11 @@ static int16_t prv_item_count(void) {
       return 2;
     case VIEW_DOOR:
     case VIEW_CHRONICLE:
+    case VIEW_DEBUG_EDIT:
+    case VIEW_DEBUG_RESET:
       return 1;
+    case VIEW_DEBUG:
+      return DEBUG_ITEM_COUNT;
   }
   return 1;
 }
@@ -228,6 +264,12 @@ static const char *prv_title(void) {
       return "AN ECHO";
     case VIEW_CHRONICLE:
       return "CROOKED HALL";
+    case VIEW_DEBUG:
+      return "TEST MENU";
+    case VIEW_DEBUG_EDIT:
+      return "TEST EDIT";
+    case VIEW_DEBUG_RESET:
+      return "RESET GAME";
   }
   return "THE HOUSE";
 }
@@ -237,6 +279,99 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
   *enabled = true;
   label[0] = '\0';
   detail[0] = '\0';
+
+  if (s_view == VIEW_DEBUG) {
+    switch ((DebugItem)index) {
+      case DEBUG_KINDLING:
+        snprintf(label, label_size, "Kindling: %d", s_state.kindling);
+        break;
+      case DEBUG_REMNANTS:
+        snprintf(label, label_size, "Remnants: %d", s_state.remnants);
+        break;
+      case DEBUG_RATIONS:
+        snprintf(label, label_size, "Rations: %d", s_state.rations);
+        break;
+      case DEBUG_CLARITY:
+        snprintf(label, label_size, "Clarity: %d", s_state.clarity);
+        break;
+      case DEBUG_FIRE:
+        snprintf(label, label_size, "Fire: %u", s_state.hearth_level);
+        break;
+      case DEBUG_GUESTS:
+        snprintf(label, label_size, "Guests: %u", s_state.residents);
+        break;
+      case DEBUG_GATHERERS:
+        snprintf(label, label_size, "Gatherers: %u", s_state.gatherers);
+        break;
+      case DEBUG_RESET:
+        snprintf(label, label_size, "Reset game");
+        break;
+      case DEBUG_ITEM_COUNT:
+        break;
+    }
+    if (index <= DEBUG_CLARITY) {
+      snprintf(detail, detail_size, "SELECT edits in steps of 10.");
+    } else if (index == DEBUG_GATHERERS) {
+      snprintf(detail, detail_size, "Listeners adjust automatically.");
+    } else if (index == DEBUG_RESET) {
+      snprintf(detail, detail_size, "Requires a second SELECT.");
+    } else {
+      snprintf(detail, detail_size, "SELECT edits one at a time.");
+    }
+    return;
+  }
+
+  if (s_view == VIEW_DEBUG_EDIT) {
+    int value = 0;
+    const char *name = "Value";
+    int step = 1;
+    switch (s_debug_item) {
+      case DEBUG_KINDLING:
+        name = "Kindling";
+        value = s_state.kindling;
+        step = DEBUG_RESOURCE_STEP;
+        break;
+      case DEBUG_REMNANTS:
+        name = "Remnants";
+        value = s_state.remnants;
+        step = DEBUG_RESOURCE_STEP;
+        break;
+      case DEBUG_RATIONS:
+        name = "Rations";
+        value = s_state.rations;
+        step = DEBUG_RESOURCE_STEP;
+        break;
+      case DEBUG_CLARITY:
+        name = "Clarity";
+        value = s_state.clarity;
+        step = DEBUG_RESOURCE_STEP;
+        break;
+      case DEBUG_FIRE:
+        name = "Fire";
+        value = s_state.hearth_level;
+        break;
+      case DEBUG_GUESTS:
+        name = "Guests";
+        value = s_state.residents;
+        break;
+      case DEBUG_GATHERERS:
+        name = "Gatherers";
+        value = s_state.gatherers;
+        break;
+      case DEBUG_RESET:
+      case DEBUG_ITEM_COUNT:
+        break;
+    }
+    snprintf(label, label_size, "%s: %d", name, value);
+    snprintf(detail, detail_size, "UP/DOWN %d. BACK saves.", step);
+    return;
+  }
+
+  if (s_view == VIEW_DEBUG_RESET) {
+    snprintf(label, label_size, "Erase all progress");
+    snprintf(detail, detail_size, "SELECT confirms. BACK cancels.");
+    return;
+  }
 
   if (s_view == VIEW_HOME) {
     switch (prv_home_item_at(index)) {
@@ -312,7 +447,7 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
   if (s_view == VIEW_GUESTS) {
     if (index == 0) {
       snprintf(label, label_size, "More gatherers");
-      snprintf(detail, detail_size, "%u gathering; yields kindling.",
+      snprintf(detail, detail_size, "%u gathering; kindling + remnants.",
                s_state.gatherers);
       *enabled = s_state.listeners > 0;
     } else {
@@ -565,11 +700,7 @@ static void prv_start_search(void) {
   if (s_searching) {
     return;
   }
-  if (s_notice_timer) {
-    app_timer_cancel(s_notice_timer);
-    s_notice_timer = NULL;
-  }
-  s_notice[0] = '\0';
+  prv_clear_notice();
   s_search_progress_ms = 0;
   s_searching = true;
   s_search_timer = app_timer_register(SEARCH_UPDATE_MS, prv_search_tick, NULL);
@@ -704,6 +835,91 @@ static void prv_activate_encounter(void) {
   prv_save();
 }
 
+static int16_t prv_adjusted_value(int16_t value, int32_t amount,
+                                  int16_t minimum, int16_t maximum) {
+  const int32_t adjusted = value + amount;
+  if (adjusted < minimum) {
+    return minimum;
+  }
+  if (adjusted > maximum) {
+    return maximum;
+  }
+  return (int16_t)adjusted;
+}
+
+static void prv_debug_adjust(int direction) {
+  const int32_t resource_amount = direction * DEBUG_RESOURCE_STEP;
+  switch (s_debug_item) {
+    case DEBUG_KINDLING:
+      s_state.kindling = prv_adjusted_value(
+          s_state.kindling, resource_amount, 0, HOUSE_RESOURCE_MAX);
+      break;
+    case DEBUG_REMNANTS:
+      s_state.remnants = prv_adjusted_value(
+          s_state.remnants, resource_amount, 0, HOUSE_RESOURCE_MAX);
+      break;
+    case DEBUG_RATIONS:
+      s_state.rations = prv_adjusted_value(
+          s_state.rations, resource_amount, 0, HOUSE_RESOURCE_MAX);
+      break;
+    case DEBUG_CLARITY:
+      s_state.clarity = prv_adjusted_value(
+          s_state.clarity, resource_amount, 0, HOUSE_RESOURCE_MAX);
+      break;
+    case DEBUG_FIRE:
+      s_state.hearth_level = (uint8_t)prv_adjusted_value(
+          s_state.hearth_level, direction, 0, 5);
+      s_state.hearth_elapsed = 0;
+      break;
+    case DEBUG_GUESTS: {
+      const uint8_t residents = (uint8_t)prv_adjusted_value(
+          s_state.residents, direction, 0, 2);
+      if (residents > s_state.residents) {
+        s_state.gatherers += residents - s_state.residents;
+        s_state.story_flags |= HOUSE_STORY_FIRST_GUEST;
+      } else if (s_state.gatherers > residents) {
+        s_state.gatherers = residents;
+      }
+      s_state.residents = residents;
+      s_state.listeners = residents - s_state.gatherers;
+      break;
+    }
+    case DEBUG_GATHERERS:
+      s_state.gatherers = (uint8_t)prv_adjusted_value(
+          s_state.gatherers, direction, 0, s_state.residents);
+      s_state.listeners = s_state.residents - s_state.gatherers;
+      break;
+    case DEBUG_RESET:
+    case DEBUG_ITEM_COUNT:
+      return;
+  }
+  prv_save();
+  layer_mark_dirty(s_canvas);
+}
+
+static void prv_activate_debug(void) {
+  s_debug_item = (DebugItem)s_selected;
+  if (s_selected == DEBUG_RESET) {
+    prv_set_view(VIEW_DEBUG_RESET);
+    return;
+  }
+  prv_set_view(VIEW_DEBUG_EDIT);
+}
+
+static void prv_return_to_debug(void) {
+  s_view = VIEW_DEBUG;
+  s_selected = s_debug_item;
+  layer_mark_dirty(s_canvas);
+}
+
+static void prv_confirm_debug_reset(void) {
+  house_state_init(&s_state, time(NULL));
+  prv_save();
+  s_debug_return_view = VIEW_HOME;
+  prv_set_view(VIEW_HOME);
+  prv_show_notice("The house forgets everything.");
+}
+
 static void prv_select_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer;
   (void)context;
@@ -735,6 +951,14 @@ static void prv_select_click(ClickRecognizerRef recognizer, void *context) {
     case VIEW_CHRONICLE:
       prv_set_view(VIEW_HOME);
       break;
+    case VIEW_DEBUG:
+      prv_activate_debug();
+      break;
+    case VIEW_DEBUG_EDIT:
+      break;
+    case VIEW_DEBUG_RESET:
+      prv_confirm_debug_reset();
+      break;
   }
 }
 
@@ -742,6 +966,10 @@ static void prv_up_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer;
   (void)context;
   if (s_searching) {
+    return;
+  }
+  if (s_view == VIEW_DEBUG_EDIT) {
+    prv_debug_adjust(1);
     return;
   }
   if (s_selected > 0) {
@@ -756,6 +984,10 @@ static void prv_down_click(ClickRecognizerRef recognizer, void *context) {
   if (s_searching) {
     return;
   }
+  if (s_view == VIEW_DEBUG_EDIT) {
+    prv_debug_adjust(-1);
+    return;
+  }
   if (s_selected + 1 < prv_item_count()) {
     s_selected++;
     layer_mark_dirty(s_canvas);
@@ -768,7 +1000,11 @@ static void prv_back_click(ClickRecognizerRef recognizer, void *context) {
   if (s_searching) {
     return;
   }
-  if (s_view == VIEW_HOME) {
+  if (s_view == VIEW_DEBUG_EDIT || s_view == VIEW_DEBUG_RESET) {
+    prv_return_to_debug();
+  } else if (s_view == VIEW_DEBUG) {
+    prv_set_view(s_debug_return_view);
+  } else if (s_view == VIEW_HOME) {
     window_stack_pop(true);
   } else if (s_view == VIEW_ENCOUNTER) {
     prv_set_view(VIEW_EXPEDITION);
@@ -779,10 +1015,25 @@ static void prv_back_click(ClickRecognizerRef recognizer, void *context) {
   }
 }
 
+static void prv_select_long_click(ClickRecognizerRef recognizer,
+                                  void *context) {
+  (void)recognizer;
+  (void)context;
+  if (s_searching || s_view == VIEW_DEBUG || s_view == VIEW_DEBUG_EDIT ||
+      s_view == VIEW_DEBUG_RESET) {
+    return;
+  }
+  s_debug_return_view = s_view;
+  prv_clear_notice();
+  prv_set_view(VIEW_DEBUG);
+}
+
 static void prv_click_config(void *context) {
   (void)context;
   window_single_repeating_click_subscribe(BUTTON_ID_UP, 180, prv_up_click);
   window_single_click_subscribe(BUTTON_ID_SELECT, prv_select_click);
+  window_long_click_subscribe(BUTTON_ID_SELECT, DEBUG_LONG_CLICK_MS,
+                              prv_select_long_click, NULL);
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 180, prv_down_click);
   window_single_click_subscribe(BUTTON_ID_BACK, prv_back_click);
 }

@@ -31,6 +31,7 @@ static void test_search_and_elapsed_production(void) {
   house_search(&state);
   assert(state.kindling == 6);
   assert(state.remnants == 1);
+  assert(state.gather_progress == 0);
 
   state.residents = 2;
   state.gatherers = 1;
@@ -38,9 +39,29 @@ static void test_search_and_elapsed_production(void) {
   const int16_t starting_kindling = state.kindling;
   assert(house_apply_elapsed(&state, 2090));
   assert(state.kindling == starting_kindling + 3);
+  assert(state.remnants == 2);
+  assert(state.gather_progress == 0);
   assert(state.clarity == 2);
   assert(!house_apply_elapsed(&state, 2090));
   assert(!house_apply_elapsed(&state, 2080));
+  assert(house_state_is_valid(&state));
+}
+
+static void test_combined_gather_progress(void) {
+  HouseState state;
+  house_state_init(&state, 2200);
+
+  assert(house_search(&state) == HOUSE_RESULT_OK);
+  assert(house_search(&state) == HOUSE_RESULT_OK);
+  assert(state.gather_progress == 2);
+  assert(state.remnants == 0);
+
+  state.residents = 1;
+  state.gatherers = 1;
+  assert(house_apply_elapsed(&state, 2230));
+  assert(state.kindling == 6);
+  assert(state.remnants == 1);
+  assert(state.gather_progress == 0);
   assert(house_state_is_valid(&state));
 }
 
@@ -160,6 +181,7 @@ static void test_invalid_inactive_expedition_state(void) {
 int main(void) {
   test_opening_and_first_guest();
   test_search_and_elapsed_production();
+  test_combined_gather_progress();
   test_hearth_decay();
   test_construction_and_assignments();
   test_first_expedition();

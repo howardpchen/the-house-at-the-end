@@ -1,0 +1,17 @@
+Host tests: PASS (`house_state tests passed`)
+Gather ratio: PASS; every third manual/passive kindling grants one remnant
+Schema migration: PASS; existing emulator saves retained resources and guests
+SDK: Pebble Tool 5.0.39, active SDK 4.17
+Build: PASS, universal Basalt/Emery PBW created
+Emery emulator install: PASS (`App install succeeded`)
+Basalt emulator install: PASS (`App install succeeded`)
+Long-SELECT Test Menu entry: PASS
+Resource, guest, and assignment editors: PASS
+Edit persistence after relaunch: PASS
+Reset cancellation, confirmation, and relaunch persistence: PASS
+Emery layout: PASS
+Basalt layout: PASS
+Time 2 CloudPebble install: PASS; exit code 0; `App install succeeded`
+
+Final PBW SHA-256:
+1d34cf2c0b3a75641824f766006144ab029343939c97fcdf5e2055134c6bd8de

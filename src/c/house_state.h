@@ -3,10 +3,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define HOUSE_STATE_SCHEMA 2
+#define HOUSE_STATE_SCHEMA 3
 #define HOUSE_RESOURCE_MAX 999
 #define HOUSE_ELAPSED_CAP_SECONDS (6 * 60 * 60)
 #define HOUSE_HEARTH_DECAY_SECONDS 60
+#define HOUSE_KINDLING_PER_REMNANT 3
 
 typedef enum {
   HOUSE_BUILD_GUEST_ROOM = 0,
@@ -42,7 +43,7 @@ typedef struct {
   int16_t rations;
   int16_t clarity;
 
-  uint16_t searches;
+  uint16_t gather_progress;
   uint16_t gather_elapsed;
   uint16_t listen_elapsed;
 

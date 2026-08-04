@@ -64,7 +64,8 @@ mapping, equipment, recovery, and the Chronicle.
 Guests are named characters, not anonymous population. Assignments describe
 their current contribution and can change at the house. Elapsed production is
 computed from saved timestamps when the app resumes, avoiding a permanent
-background worker.
+background worker. Gatherers produce kindling and share the manual-search
+progress rule: every third gathered kindling also yields one remnant.
 
 ## Expedition loop
 
@@ -113,7 +114,7 @@ line, not exclusive information.
 
 ## Current vertical slice
 
-Version 0.1.3 implements:
+Version 0.1.4 implements:
 
 - two-second room searches and a hearth that loses one Fire per minute;
 - first guest arrival and two elapsed-time roles;
@@ -124,6 +125,8 @@ Version 0.1.3 implements:
 - versioned, checksummed persistence;
 - host-side deterministic rules tests;
 - successful complete emulator progression on Basalt and Emery.
+- a long-SELECT testing menu for resources, Fire, guests, assignments, and
+  confirmed game reset.
 
 Physical Time Steel and Time 2 validation remains outstanding.
 

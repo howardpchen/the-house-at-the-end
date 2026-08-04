@@ -36,6 +36,10 @@ The game uses one compact record containing:
 Unknown, truncated, or corrupt records fall back to a new game. Schema changes
 must add explicit migration before the version number advances.
 
+Schema 3 reinterprets the existing search counter as a modulo-three shared
+gathering counter. Schema-1 and schema-2 records migrate in place without
+changing the 40-byte `HouseState` size.
+
 ## Elapsed time
 
 The save timestamp is the source of truth. On launch and during foreground
@@ -45,6 +49,15 @@ counter. Catch-up is capped at six hours. Negative elapsed time is ignored. No
 background worker, wakeup event, phone service, or network connection is
 required. Schema 2 reuses the schema-1 state padding byte for the hearth timer,
 so existing version-1 saves migrate without changing the record size.
+
+## Testing menu
+
+Holding SELECT for one second opens a clearly labeled testing menu. Resource
+edits use ten-unit steps; Fire, guest count, and gatherer count use one-unit
+steps. Every edit is clamped to normal state limits and persisted immediately.
+Changing gatherer count derives listener count so guest assignments remain
+valid. Reset requires entering a separate confirmation screen and pressing
+SELECT again; BACK cancels.
 
 ## Review acceptance
 

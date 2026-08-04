@@ -10,6 +10,15 @@ static int16_t prv_add_capped(int16_t value, int32_t amount) {
   return (int16_t)(result > HOUSE_RESOURCE_MAX ? HOUSE_RESOURCE_MAX : result);
 }
 
+static void prv_add_gather_yields(HouseState *state, uint32_t kindling) {
+  state->kindling = prv_add_capped(state->kindling, (int32_t)kindling);
+  const uint32_t progress = state->gather_progress + kindling;
+  state->remnants = prv_add_capped(
+      state->remnants, (int32_t)(progress / HOUSE_KINDLING_PER_REMNANT));
+  state->gather_progress =
+      (uint16_t)(progress % HOUSE_KINDLING_PER_REMNANT);
+}
+
 static void prv_clear_expedition(HouseState *state) {
   state->expedition_active = 0;
   state->expedition_step = 0;
@@ -47,7 +56,8 @@ bool house_state_is_valid(const HouseState *state) {
     return false;
   }
 
-  if (state->hearth_level > 5 ||
+  if (state->gather_progress >= HOUSE_KINDLING_PER_REMNANT ||
+      state->hearth_level > 5 ||
       state->hearth_elapsed >= HOUSE_HEARTH_DECAY_SECONDS ||
       (state->hearth_level == 0 && state->hearth_elapsed != 0) ||
       state->residents > 2 || state->memories > 1 ||
@@ -107,8 +117,7 @@ bool house_apply_elapsed(HouseState *state, int64_t now) {
     const uint32_t cycles = total / 30U;
     state->gather_elapsed = (uint16_t)(total % 30U);
     if (cycles > 0) {
-      state->kindling = prv_add_capped(
-          state->kindling, (int32_t)cycles * state->gatherers);
+      prv_add_gather_yields(state, cycles * state->gatherers);
       changed = true;
     }
   } else {
@@ -136,11 +145,7 @@ HouseResult house_search(HouseState *state) {
     return HOUSE_RESULT_LOCKED;
   }
 
-  state->searches++;
-  state->kindling = prv_add_capped(state->kindling, 1);
-  if (state->searches % 3U == 0) {
-    state->remnants = prv_add_capped(state->remnants, 1);
-  }
+  prv_add_gather_yields(state, 1);
   return HOUSE_RESULT_OK;
 }
 

@@ -11,14 +11,14 @@
 - Platform: PebbleOS native C
 - Primary targets: Basalt / Pebble Time Steel and Emery / Pebble Time 2
 - Initial language: English
-- Current implementation: version 0.1.3 vertical slice
+- Current implementation: version 0.1.4 vertical slice
 - Bible status: complete direction for the classic campaign; numerical balance
   remains provisional until physical-watch testing
 - Canonical review copy: this file and its synchronized Obsidian copy
 
 The labels used throughout are:
 
-- **Implemented:** present in version 0.1.3.
+- **Implemented:** present in version 0.1.4.
 - **Planned:** committed campaign direction, not yet implemented.
 - **Tentative:** a useful option that still needs a product decision or test.
 
@@ -224,7 +224,7 @@ time.
 | Resource | Primary sources | Primary sinks | Unlock |
 | --- | --- | --- | --- |
 | Kindling | searching rooms, gatherers | hearth, basic construction, ration preparation | opening |
-| Remnants | searches, Drift cargo, menders | rooms, equipment, repairs | opening |
+| Remnants | searches, gatherers, Drift cargo, menders | rooms, equipment, repairs | opening |
 | Rations | worktable/pantry | expedition movement and recovery | Movement I |
 | Clarity | listeners, memory events | expedition movement, anchoring choices | Movement I |
 | Thread | contradiction landmarks, loom | advanced anchors, wards, guest keepsakes | Movement II |
@@ -236,8 +236,10 @@ at 999 or below. Overflow always saturates rather than wraps.
 
 ### 8.2 Implemented vertical-slice values
 
-- Search rooms: two-second progress action; +1 kindling; every third search also
-  yields +1 remnant.
+- Search rooms: two-second progress action; +1 kindling.
+- Gatherers: +1 kindling each per 30 seconds.
+- Every third kindling gathered across room searches and gatherers also yields
+  +1 remnant.
 - Feed hearth: costs 2 kindling; maximum prototype level is 5; Fire loses one
   level per accumulated minute and feeding resets that minute's countdown.
 - Guest room: 8 kindling + 4 remnants.
