@@ -1,0 +1,313 @@
+{
+  "resources": {
+    "kindling": 0,
+    "remnants": 1,
+    "rations": 2,
+    "clarity": 3,
+    "thread": 4,
+    "keys": 5,
+    "resolve": 6
+  },
+  "guests": {"mara": 0, "oren": 1, "sera": 2, "bell": 3},
+  "flags": {
+    "platform_seen": 1,
+    "oren_invited": 2,
+    "bedroom_tide_seen": 3,
+    "sera_invited": 4,
+    "safe_route": 5,
+    "bell_invited": 6,
+    "bell_contained": 7,
+    "bell_erased": 8,
+    "wake_chosen": 9,
+    "keep_chosen": 10,
+    "door_chosen": 11
+  },
+  "scenes": [
+    {
+      "id": 1,
+      "name": "Platform 3:17",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Every timetable names a different city. Each departure remains 3:17."},
+        {"op": "text", "text": "A man in a railway coat asks which version you intend to miss."},
+        {"op": "choice", "options": [
+          {"text": "Invite Oren", "target": "invite"},
+          {"text": "Study the boards", "target": "study"}
+        ]},
+        {"label": "invite", "op": "set_flag", "flag": "oren_invited"},
+        {"op": "trust", "guest": "oren", "delta": 1},
+        {"op": "reward", "resource": "keys", "amount": 1},
+        {"op": "text", "text": "Oren folds the impossible timetable and follows your light home."},
+        {"op": "end", "result": 1},
+        {"label": "study", "op": "reward", "resource": "clarity", "amount": 2},
+        {"op": "set_flag", "flag": "platform_seen"},
+        {"op": "set_flag", "flag": "oren_invited"},
+        {"op": "reward", "resource": "keys", "amount": 1},
+        {"op": "text", "text": "The destinations disagree. The handwriting does not."},
+        {"op": "end", "result": 2}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Bedroom Tide",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Sea water climbs the wallpaper, then withdraws without wetting the bed."},
+        {"op": "if_resource", "resource": "clarity", "amount": 2, "target": "rescue"},
+        {"op": "text", "text": "Someone calls beyond the returning water. You cannot hold the room yet."},
+        {"op": "end", "result": 0},
+        {"label": "rescue", "op": "choice", "options": [
+          {"text": "Spend 2 clarity", "target": "hold"},
+          {"text": "Mark a return", "target": "mark"}
+        ]},
+        {"label": "hold", "op": "cost", "resource": "clarity", "amount": 2},
+        {"op": "set_flag", "flag": "sera_invited"},
+        {"op": "trust", "guest": "sera", "delta": 1},
+        {"op": "text", "text": "Sera takes your hand as if she had expected you to be late."},
+        {"op": "end", "result": 1},
+        {"label": "mark", "op": "set_flag", "flag": "bedroom_tide_seen"},
+        {"op": "text", "text": "You tie a pale thread where the tide cannot decide to reach."},
+        {"op": "end", "result": 0}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "The Orchard of Keys",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Metal keys grow from black branches. Each bears a room instead of a name."},
+        {"op": "choice", "options": [
+          {"text": "Take one key", "target": "take"},
+          {"text": "Bind two versions", "target": "bind"}
+        ]},
+        {"label": "take", "op": "reward", "resource": "keys", "amount": 1},
+        {"op": "text", "text": "The branch closes behind the key as though healing a small wound."},
+        {"op": "end", "result": 1},
+        {"label": "bind", "op": "reward", "resource": "thread", "amount": 2},
+        {"op": "reward", "resource": "keys", "amount": 1},
+        {"op": "text", "text": "Two incompatible teeth turn together when wrapped in pale thread."},
+        {"op": "end", "result": 2}
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Waiting Room No. 6",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Three intake cards share the same patient number and three different names."},
+        {"op": "text", "text": "Mara, Oren, and Sera each recognize the handwriting as their own."},
+        {"op": "reward", "resource": "keys", "amount": 1},
+        {"op": "reward", "resource": "clarity", "amount": 2},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 5,
+      "name": "The House Across the Street",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Your house stands across a street too narrow for either front door to open."},
+        {"op": "choice", "options": [
+          {"text": "Keep both houses", "target": "both"},
+          {"text": "Anchor your house", "target": "one"}
+        ]},
+        {"label": "both", "op": "cost", "resource": "clarity", "amount": 2},
+        {"op": "reward", "resource": "thread", "amount": 2},
+        {"op": "text", "text": "For one breath, both windows contain the same warm figures."},
+        {"op": "end", "result": 2},
+        {"label": "one", "op": "reward", "resource": "remnants", "amount": 3},
+        {"op": "text", "text": "The other porch folds flat, but its house number stays in your hand."},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 6,
+      "name": "The House with Three Kitchens",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Three kitchens occupy one room. Each table waits beneath a different light."},
+        {"op": "choice", "options": [
+          {"text": "Preserve all three", "target": "all"},
+          {"text": "Choose one table", "target": "one"}
+        ]},
+        {"label": "all", "op": "cost", "resource": "clarity", "amount": 3},
+        {"op": "reward", "resource": "thread", "amount": 3},
+        {"op": "text", "text": "No meal becomes the original. Everyone remembers being fed."},
+        {"op": "end", "result": 2},
+        {"label": "one", "op": "reward", "resource": "remnants", "amount": 3},
+        {"op": "text", "text": "One table remains. The empty places around it feel deliberate."},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 7,
+      "name": "The Flooded Classroom",
+      "ops": [
+        {"label": "start", "op": "text", "text": "A child and an adult write ROWAN on the same submerged blackboard."},
+        {"op": "text", "text": "Mara recalls a sibling. Sera recalls the clinician who signed her chart."},
+        {"op": "reward", "resource": "clarity", "amount": 3},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 8,
+      "name": "The Telephone Exchange",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Every dead receiver rings. Each voice asks for MAINT-ROWAN."},
+        {"op": "choice", "options": [
+          {"text": "Answer as Rowan", "target": "rowan"},
+          {"text": "Answer as keeper", "target": "keeper"}
+        ]},
+        {"label": "rowan", "op": "reward", "resource": "clarity", "amount": 2},
+        {"op": "text", "text": "The line accepts the name and rejects your voice."},
+        {"op": "end", "result": 1},
+        {"label": "keeper", "op": "reward", "resource": "thread", "amount": 2},
+        {"op": "text", "text": "The voices go quiet. One whispers that a function can still become a person."},
+        {"op": "end", "result": 2}
+      ]
+    },
+    {
+      "id": 9,
+      "name": "The Museum of Unfinished Faces",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Half-made faces turn away when you offer to finish them."},
+        {"op": "text", "text": "They ask to remain fragments rather than become convenient strangers."},
+        {"op": "reward", "resource": "thread", "amount": 2},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 10,
+      "name": "The White Office",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Bell waits behind a white desk, correcting every sentence into an absence."},
+        {"op": "choice", "options": [
+          {"text": "Invite Bell", "target": "invite"},
+          {"text": "Contain Bell", "target": "contain"},
+          {"text": "Erase Bell", "target": "erase"}
+        ]},
+        {"label": "invite", "op": "set_flag", "flag": "bell_invited"},
+        {"op": "trust", "guest": "bell", "delta": 2},
+        {"op": "text", "text": "Bell removes one redaction: I was built to forget you."},
+        {"op": "end", "result": 3},
+        {"label": "contain", "op": "set_flag", "flag": "bell_contained"},
+        {"op": "text", "text": "A narrow room forms around Bell. The walls continue taking notes."},
+        {"op": "end", "result": 2},
+        {"label": "erase", "op": "set_flag", "flag": "bell_erased"},
+        {"op": "text", "text": "The desk is empty. A fresh page remembers the pressure of Bell's hand."},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 11,
+      "name": "The Root Cellar",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Roots beneath the hearth shed their bark. Braided cables shine underneath."},
+        {"op": "text", "text": "The house is not hiding machinery. It is how the machinery learned to be seen."},
+        {"op": "reward", "resource": "clarity", "amount": 3},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 12,
+      "name": "The Maintenance Spine",
+      "ops": [
+        {"label": "start", "op": "text", "text": "A corridor of status lights opens only when your palm meets the wall."},
+        {"op": "text", "text": "ADMINISTRATOR: MAINT-ROWAN. Isolation authority remains active."},
+        {"op": "reward", "resource": "keys", "amount": 1},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 13,
+      "name": "The Cooling Cathedral",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Rain climbs toward a ceiling of fans. Every drop carries a temperature."},
+        {"op": "text", "text": "There is power for one recovery, or a small world that cannot grow forever."},
+        {"op": "reward", "resource": "thread", "amount": 3},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 14,
+      "name": "The Recovery Ledger",
+      "ops": [
+        {"label": "start", "op": "text", "text": "One body remains viable. The ledger names Rowan Venn."},
+        {"op": "text", "text": "Mara says your name, then stops before deciding whom she means."},
+        {"op": "reward", "resource": "clarity", "amount": 3},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 15,
+      "name": "The Severance Record",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Rowan initiated isolation. The procedure saved one body and trapped every copy."},
+        {"op": "text", "text": "Years passed outside. Shared experience made the incomplete records new people."},
+        {"op": "reward", "resource": "keys", "amount": 1},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 16,
+      "name": "The Remembered Threshold",
+      "ops": [
+        {"label": "start", "op": "text", "text": "The safest stones are memories you allowed to disagree."},
+        {"op": "text", "text": "Discarded versions walk beside the path as red, patient echoes."},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 17,
+      "name": "The Guests' Vigil",
+      "ops": [
+        {"label": "start", "op": "text", "text": "Mara asks for the living. Oren asks for continuity. Sera asks who holds the key."},
+        {"op": "text", "text": "No answer preserves everyone. Each guest chooses to stand with you anyway."},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 18,
+      "name": "The Final Doorframe",
+      "ops": [
+        {"label": "start", "op": "text", "text": "The house sheds impossible rooms while you bind the last doorframe."},
+        {"op": "cost", "resource": "thread", "amount": 2},
+        {"op": "text", "text": "The final latch turns. Three futures wait on the other side."},
+        {"op": "end", "result": 1}
+      ]
+    },
+    {
+      "id": 19,
+      "name": "The Last Choice",
+      "ops": [
+        {"label": "start", "op": "text", "text": "A body, a bounded home, or a world without a keeper. Nothing leaves unchanged."},
+        {"op": "choice", "options": [
+          {"text": "Wake", "target": "wake"},
+          {"text": "Keep the house", "target": "keep"},
+          {"text": "Become the door", "target": "door"}
+        ]},
+        {"label": "wake", "op": "set_flag", "flag": "wake_chosen"},
+        {"op": "text", "text": "Rowan wakes alone, carrying names that no external record can prove."},
+        {"op": "end", "result": 1},
+        {"label": "keep", "op": "set_flag", "flag": "keep_chosen"},
+        {"op": "text", "text": "The Drift stops expanding. Oren records the first permanent morning."},
+        {"op": "end", "result": 2},
+        {"label": "door", "op": "set_flag", "flag": "door_chosen"},
+        {"op": "text", "text": "Authority scatters among the guests. Sera opens the door without permission."},
+        {"op": "end", "result": 3}
+      ]
+    },
+    {
+      "id": 20,
+      "name": "A Familiar Porch",
+      "ops": [
+        {"label": "start", "op": "text", "text": "A porch faces your house from a street too narrow to stand between them."},
+        {"op": "choice", "options": [
+          {"text": "Stabilize route", "target": "route"},
+          {"text": "Search the porch", "target": "search"}
+        ]},
+        {"label": "route", "op": "cost", "resource": "clarity", "amount": 1},
+        {"op": "set_flag", "flag": "safe_route"},
+        {"op": "text", "text": "One line of paving stones agrees to remain."},
+        {"op": "end", "result": 1},
+        {"label": "search", "op": "reward", "resource": "remnants", "amount": 2},
+        {"op": "text", "text": "Under the mat: two house numbers, both warm from the same sun."},
+        {"op": "end", "result": 2}
+      ]
+    }
+  ]
+}

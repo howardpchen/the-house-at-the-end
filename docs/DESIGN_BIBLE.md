@@ -11,14 +11,14 @@
 - Platform: PebbleOS native C
 - Primary targets: Basalt / Pebble Time Steel and Emery / Pebble Time 2
 - Initial language: English
-- Current implementation: version 0.1.8 vertical slice
+- Current implementation: version 0.2.0 campaign-path alpha
 - Bible status: complete direction for the classic campaign; numerical balance
   remains provisional until physical-watch testing
 - Canonical review copy: this file and its synchronized Obsidian copy
 
 The labels used throughout are:
 
-- **Implemented:** present in version 0.1.8.
+- **Implemented:** present in version 0.2.0.
 - **Planned:** committed campaign direction, not yet implemented.
 - **Tentative:** a useful option that still needs a product decision or test.
 
@@ -378,7 +378,7 @@ epilogues; it never turns a guest into a production penalty.
 
 ### 11.1 Map size and generation
 
-**Planned:** one deterministic 31×31 grid centered on the house. This is
+**Implemented in 0.2.0:** one deterministic 31×31 grid centered on the house. This is
 deliberately smaller than the 61×61 reference described in the attached
 assessment. It better fits the campaign, save budget, and watch-session travel
 time.
@@ -526,7 +526,7 @@ repair, observation, or anchoring rather than combat. Example decisions:
 
 ### 14.1 Interpreter
 
-**Planned:** scenes compile to compact binary resources interpreted by a shared
+**Implemented in 0.2.0:** scenes compile to compact binary resources interpreted by a shared
 C runtime. Hundreds of bespoke C callbacks would waste code space and make
 content difficult to audit.
 
@@ -829,20 +829,26 @@ Progressive disclosure keeps the early hub short.
 
 - `house_state`: pure C rules for resources, construction, assignments, elapsed
   production, and the first expedition.
-- `main`: Pebble lifecycle, persistence, drawing, buttons, and navigation.
+- `game_state`: canonical movement, facility, named-guest, landmark, and ending
+  state.
+- `save_store`: segmented records, checksums, legacy migration, fallback, and
+  two-bank commits over an abstract backend.
+- `world_gen`: deterministic 31×31 terrain, visibility, and 24 stable landmark
+  positions.
+- `expedition`: Drift movement, supplies, hazards, cargo, and return rules.
+- `scene_vm` and `content_format`: bounded binary event interpretation and
+  resource lookup.
+- `main`: Pebble lifecycle, persistence adapter, resource reads, drawing,
+  buttons, and navigation.
+- `tools/compile_scenes.py`: JSON validation and deterministic binary resource
+  generation.
 - host tests: deterministic state transitions without Pebble headers.
 
 ### 18.2 Planned modules
 
-- `game_state`: canonical state and command application.
-- `save_store`: segmented records, checksums, migration, and two-bank commits.
 - `economy`: elapsed production, caps, construction, and crafting.
 - `guest_system`: roles, trust tiers, conversations, and personal flags.
-- `world_gen`: seeded terrain and landmark placement.
-- `expedition`: movement, supplies, cargo, equipment, and return logic.
 - `encounter`: turn-based templates and action resolution.
-- `scene_vm`: bounded binary event interpreter.
-- `content`: generated stable IDs and resource readers.
 - `ui`: screen stack, drawing helpers, text pagination, and platform layout.
 - `finale`: optional tilt and button stability sequence.
 
@@ -869,7 +875,7 @@ Frequently used labels may remain compiled constants when cheaper.
 Pebble provides 4 KB total persistent storage and currently limits each value
 to 256 bytes. The full save therefore cannot be one large struct.
 
-### 19.1 Planned segmented save
+### 19.1 Implemented segmented save
 
 | Segment | Target size | Contents |
 | --- | ---: | --- |
@@ -895,8 +901,10 @@ is below 2 KB, leaving migration and settings headroom.
 - migrate explicitly or offer a clear reset when migration is impossible;
 - uninstalling the app removes watch-side data, as expected on PebbleOS.
 
-The single-record save introduced in version 0.1.0 remains valid through version
-0.1.8 and stays until the segmented model is needed.
+Version 0.2.0 writes actual-length schema-4 segments and uses roughly 0.7 KB
+for both banks plus the manifest. Valid schema-1 through schema-3 single-record
+saves migrate automatically; the old record remains available as a recovery
+source during the first migration.
 
 ## 20. Platform and memory budgets
 
@@ -907,17 +915,19 @@ Documented platform limits:
 - Both: four buttons, accelerometer/IMU capability, rectangular color display.
 - Persistent storage: 4 KB total, 256 bytes per value.
 
-Version 0.1.8 measured evidence:
+Version 0.2.0 measured evidence:
 
-- universal PBW: 33,031 bytes;
-- resources: 4,092 bytes per platform;
-- reported application RAM footprint: 11,497 bytes;
-- reported free Basalt heap: 54,039 bytes;
-- reported free Emery heap: 119,575 bytes;
+- universal PBW: 59,969 bytes;
+- resources: 8,713 bytes per platform;
+- reported application RAM footprint: 20,664 bytes;
+- reported free Basalt heap: 44,872 bytes;
+- reported free Emery heap: 110,408 bytes;
 - host tests and clean SDK 4.17 build pass;
-- complete first-memory progression and current timed-action layouts pass across
-  Basalt and Emery emulator reviews;
-- the exact reviewed build installs on physical Time 2 through CloudPebble;
+- deterministic world, interrupted/corrupt save recovery, compiled scene
+  execution, movement progression, and all ending choices pass host tests;
+- map, scene-page, and choice layouts pass Basalt and Emery emulator review;
+- the exact reviewed 0.2.0 build installs on physical Time 2 through
+  CloudPebble; migration behavior and interaction feel remain wearer tests;
 - physical interaction feel and extended reliability remain wearer tests.
 
 ### Budget gates for the complete campaign
@@ -929,8 +939,8 @@ Version 0.1.8 measured evidence:
 - Keep unpacked world plus visibility below 1.5 KB RAM.
 - Keep complete persistent data below 2 KB including the redundant bank.
 - Run linker and resource reports at every movement milestone.
-- Do not promise the complete content set until the scene interpreter and one
-  generated region have measured on Basalt.
+- Treat the current 20-scene route as a campaign skeleton until the complete
+  facility, guest, encounter, Chronicle, and epilogue content has also measured.
 
 ## 21. Testing strategy
 
@@ -973,9 +983,9 @@ the authority for feel, power, vibration, and reliability.
 
 ## 22. Vertical slice definition
 
-Version 0.1.0 established the accepted technical vertical slice. Version 0.1.8
-retains that scope while incorporating the reviewed interaction and balance
-iterations documented above.
+Version 0.1.0 established the accepted technical vertical slice. Version 0.2.0
+adds the measured campaign foundation and a playable narrative route from the
+Crooked Hall through all three ending choices.
 
 It proves:
 
@@ -983,18 +993,22 @@ It proves:
 - a custom button-first hierarchy fits both displays;
 - pure state logic can run under host tests;
 - timestamp production works without a background worker;
-- a versioned checksummed record fits one persistence value;
+- a redundant segmented save fits well below the 2 KB target and migrates the
+  earlier single record;
 - the house → guest → construction → provisioning → expedition → encounter →
   chronicle loop is playable;
+- a deterministic 31×31 world, 7×7 viewport, compact scene VM, and bounded
+  resource-backed text fit Basalt;
+- all five movements and three endings are reachable through tested story
+  gates;
 - layout defects can be caught and corrected on the 144×168 target.
 
 It does not yet prove:
 
-- generated-world memory or save budgets;
-- binary scene interpreter size and authoring flow;
 - physical-watch pacing and button fatigue;
 - hardware persistence across reboot;
-- complete campaign content volume;
+- complete facility economy, guest conversations, encounter catalog, Chronicle
+  variants, and strong/weak epilogues;
 - final tilt sequence;
 - long-run stability.
 
@@ -1007,14 +1021,14 @@ It does not yet prove:
 - first house and Crooked Hall loop;
 - Basalt and Emery emulator proof.
 
-### Milestone 2 — World and content proof
+### Milestone 2 — World and content proof *(implemented in 0.2.0)*
 
 - 31×31 seeded generator;
 - visibility and landmark bitsets;
 - 7×7 viewport;
 - segmented save bank;
 - minimal scene compiler/interpreter;
-- one Movement II region and three event types;
+- a 20-scene skeleton spanning Movements II–V and all three endings;
 - measured Basalt budgets.
 
 ### Milestone 3 — Complete systems alpha

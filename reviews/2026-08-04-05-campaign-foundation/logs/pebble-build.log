@@ -1,0 +1,77 @@
+'distclean' finished successfully (0.014s)
+Setting top to                           : /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end 
+Setting out to                           : /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build 
+Checking for program 'webpack'           : /home/oc/.local/share/pebble-sdk/SDKs/current/node_modules/.bin/webpack 
+Found Pebble SDK for emery in:           : /home/oc/.local/share/pebble-sdk/SDKs/current/sdk-core/pebble/emery 
+Checking for program 'gcc, cc'           : arm-none-eabi-gcc 
+Checking for program 'ar'                : arm-none-eabi-ar 
+Found Pebble SDK for basalt in:          : /home/oc/.local/share/pebble-sdk/SDKs/current/sdk-core/pebble/basalt 
+Checking for program 'gcc, cc'           : arm-none-eabi-gcc 
+Checking for program 'ar'                : arm-none-eabi-ar 
+'configure' finished successfully (0.033s)
+Waf: Entering directory `/home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build'
+[1/1] Creating message_key_header:  -> build/include/message_keys.auto.h
+[ 2/22] Compiling emery | reso: resources/generated/strings.bin -> build/emery/resources/generated/strings.bin.STRINGS.reso
+[ 3/22] Compiling emery | reso: resources/generated/scenes.bin -> build/emery/resources/generated/scenes.bin.SCENES.reso
+[ 4/22] Creating emery | /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build/emery/appinfo.auto.c:  -> build/emery/appinfo.auto.c
+[ 5/22] Compiling emery | subst: ../../../../.local/share/pebble-sdk/SDKs/current/sdk-core/pebble/common/pebble_app.ld.template -> build/emery/pebble_app.ld.auto
+[ 6/22] Compiling emery | c: src/c/expedition.c -> build/src/c/expedition.c.16.o
+[ 7/22] Compiling emery | c: src/c/world_gen.c -> build/src/c/world_gen.c.16.o
+[ 8/22] Compiling emery | c: src/c/content_format.c -> build/src/c/content_format.c.16.o
+[ 9/22] Compiling emery | c: src/c/scene_vm.c -> build/src/c/scene_vm.c.16.o
+[10/22] Compiling emery | c: src/c/game_state.c -> build/src/c/game_state.c.16.o
+[11/22] Compiling emery | c: src/c/save_store.c -> build/src/c/save_store.c.16.o
+[12/22] Compiling emery | c: src/c/house_state.c -> build/src/c/house_state.c.16.o
+[13/22] Creating emery | /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build/appinfo.json:  -> build/appinfo.json
+[14/22] Processing emery | resource_ball: build/emery/resources/generated/scenes.bin.SCENES.reso build/emery/resources/generated/strings.bin.STRINGS.reso -> build/emery/system_resources.resball
+[15/22] Compiling emery | generate_resource_id_definitions: build/emery/system_resources.resball -> build/emery/src/resource_ids.auto.c
+[16/22] Compiling emery | generate_pbpack: build/emery/system_resources.resball -> build/emery/app_resources.pbpack
+[17/22] Compiling emery | generate_resource_id_header: build/emery/system_resources.resball -> build/emery/src/resource_ids.auto.h
+[18/22] Compiling emery | c: src/c/main.c -> build/src/c/main.c.16.o
+[19/22] Compiling emery | c: build/emery/appinfo.auto.c -> build/emery/appinfo.auto.c.16.o
+[20/22] Compiling emery | c: build/emery/src/resource_ids.auto.c -> build/emery/src/resource_ids.auto.c.16.o
+[21/22] Linking emery | cprogram: build/src/c/content_format.c.16.o build/src/c/expedition.c.16.o build/src/c/game_state.c.16.o build/src/c/house_state.c.16.o build/src/c/main.c.16.o build/src/c/save_store.c.16.o build/src/c/scene_vm.c.16.o build/src/c/world_gen.c.16.o build/emery/appinfo.auto.c.16.o build/emery/src/resource_ids.auto.c.16.o -> build/emery/pebble-app.elf
+/home/oc/.local/share/pebble-sdk/SDKs/4.17/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/bin/ld: warning: /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build/emery/pebble-app.elf has a LOAD segment with RWX permissions
+
+[22/22] Processing emery | memory_usage_report: build/emery/pebble-app.elf build/emery/app_resources.pbpack
+-------------------------------------------------------
+EMERY APP MEMORY USAGE
+Total size of resources:        8713 bytes / 256.0KB
+Total footprint in RAM:         20664 bytes / 128.0KB
+Free RAM available (heap):      110408 bytes
+------------------------------------------------------- 
+[23/43] Compiling basalt | reso: resources/generated/strings.bin -> build/basalt/resources/generated/strings.bin.STRINGS.reso
+[24/43] Compiling basalt | reso: resources/generated/scenes.bin -> build/basalt/resources/generated/scenes.bin.SCENES.reso
+[26/43] Creating basalt | /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build/basalt/appinfo.auto.c:  -> build/basalt/appinfo.auto.c
+[27/43] Compiling basalt | subst: ../../../../.local/share/pebble-sdk/SDKs/current/sdk-core/pebble/common/pebble_app.ld.template -> build/basalt/pebble_app.ld.auto
+[28/43] Compiling basalt | c: src/c/scene_vm.c -> build/src/c/scene_vm.c.17.o
+[29/43] Compiling basalt | c: src/c/house_state.c -> build/src/c/house_state.c.17.o
+[30/43] Compiling basalt | c: src/c/content_format.c -> build/src/c/content_format.c.17.o
+[31/43] Compiling basalt | c: src/c/game_state.c -> build/src/c/game_state.c.17.o
+[32/43] Compiling basalt | c: src/c/save_store.c -> build/src/c/save_store.c.17.o
+[33/43] Compiling basalt | c: src/c/world_gen.c -> build/src/c/world_gen.c.17.o
+[34/43] Compiling basalt | c: src/c/expedition.c -> build/src/c/expedition.c.17.o
+[35/43] Processing basalt | resource_ball: build/basalt/resources/generated/scenes.bin.SCENES.reso build/basalt/resources/generated/strings.bin.STRINGS.reso -> build/basalt/system_resources.resball
+[36/43] Compiling basalt | generate_resource_id_definitions: build/basalt/system_resources.resball -> build/basalt/src/resource_ids.auto.c
+[37/43] Compiling basalt | generate_pbpack: build/basalt/system_resources.resball -> build/basalt/app_resources.pbpack
+[38/43] Compiling basalt | generate_resource_id_header: build/basalt/system_resources.resball -> build/basalt/src/resource_ids.auto.h
+[39/43] Compiling basalt | c: build/basalt/src/resource_ids.auto.c -> build/basalt/src/resource_ids.auto.c.17.o
+[40/43] Compiling basalt | c: src/c/main.c -> build/src/c/main.c.17.o
+[41/43] Compiling basalt | c: build/basalt/appinfo.auto.c -> build/basalt/appinfo.auto.c.17.o
+[42/43] Linking basalt | cprogram: build/src/c/content_format.c.17.o build/src/c/expedition.c.17.o build/src/c/game_state.c.17.o build/src/c/house_state.c.17.o build/src/c/main.c.17.o build/src/c/save_store.c.17.o build/src/c/scene_vm.c.17.o build/src/c/world_gen.c.17.o build/basalt/appinfo.auto.c.17.o build/basalt/src/resource_ids.auto.c.17.o -> build/basalt/pebble-app.elf
+/home/oc/.local/share/pebble-sdk/SDKs/4.17/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/bin/ld: warning: /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build/basalt/pebble-app.elf has a LOAD segment with RWX permissions
+
+[43/43] Processing basalt | memory_usage_report: build/basalt/pebble-app.elf build/basalt/app_resources.pbpack
+-------------------------------------------------------
+BASALT APP MEMORY USAGE
+Total size of resources:        8713 bytes / 256.0KB
+Total footprint in RAM:         20664 bytes / 64.0KB
+Free RAM available (heap):      44872 bytes
+------------------------------------------------------- 
+[44/48] Compiling emery | /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build/emery/pebble-app.raw.bin: build/emery/pebble-app.elf -> build/emery/pebble-app.raw.bin
+[45/48] Compiling basalt | /home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build/basalt/pebble-app.raw.bin: build/basalt/pebble-app.elf -> build/basalt/pebble-app.raw.bin
+[46/48] Processing emery | inject-metadata: build/emery/pebble-app.raw.bin build/emery/pebble-app.elf build/emery/app_resources.pbpack -> build/emery/pebble-app.bin
+[47/48] Processing basalt | inject-metadata: build/basalt/pebble-app.raw.bin build/basalt/pebble-app.elf build/basalt/app_resources.pbpack -> build/basalt/pebble-app.bin
+[48/48] Creating app_bundle:  -> build/the-house-at-the-end.pbw
+Waf: Leaving directory `/home/oc/.openclaw/workspace-doClawCoder/projects/the-house-at-the-end/build'
+'build' finished successfully (0.773s)

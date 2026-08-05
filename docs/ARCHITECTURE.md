@@ -1,8 +1,8 @@
 # Architecture
 
-This file documents the implemented vertical-slice architecture. The planned
-world generator, segmented save, event interpreter, module boundaries, and
-memory gates are specified in the spoiler-heavy
+This file documents the implemented version 0.2.0 campaign foundation. The
+full campaign rules, remaining module boundaries, and memory gates are in the
+spoiler-heavy
 [`DESIGN_BIBLE.md`](DESIGN_BIBLE.md).
 
 ## Targets
@@ -17,28 +17,73 @@ additional visible copy, but no exclusive control or required information.
 ## Boundaries
 
 - `house_state`: platform-independent rules, elapsed-time production, unlocks,
-  construction, assignments, and expedition resolution.
-- `main`: Pebble lifecycle, persistence, navigation, button input, and drawing.
+  construction, assignments, and the Movement I expedition.
+- `game_state`: campaign state, movement gates, facilities, named guests, and
+  ending reachability.
+- `world_gen`: stable 31×31 terrain, movement-banded landmark placement, a
+  121-byte visibility mask, and cleared-landmark bits.
+- `expedition`: Drift preparation, supplies, movement, hazards, cargo, and
+  return rules.
+- `scene_vm` and `content_format`: bounded bytecode execution and binary scene
+  and string lookup.
+- `save_store`: checksummed, segmented, two-bank commits over an abstract
+  persistence backend.
+- `main`: Pebble lifecycle, backend adapter, navigation, resource reads, button
+  input, and drawing.
+- `tools/compile_scenes.py`: validates and compiles human-readable JSON into
+  Pebble raw resources and a review report.
 - `tests`: ordinary host-C tests for deterministic state transitions.
 
 The state module intentionally does not include `pebble.h`, allowing its rules
 to be tested without an emulator.
 
-## Save record
+## Save store
 
 Pebble persistent storage allows 4 kB per application and 256 bytes per value.
-The game uses one compact record containing:
+Version 0.2.0 writes six actual-length segments to an inactive bank:
 
-- schema version and record size;
-- complete `HouseState` payload;
-- checksum over the preceding bytes.
+- core house state;
+- named guests;
+- world seed, visibility, and cleared landmarks;
+- story movement, facilities, keys, thread, flags, and ending;
+- compact inventory;
+- active Drift expedition.
 
-Unknown, truncated, or corrupt records fall back to a new game. Schema changes
-must add explicit migration before the version number advances.
+Every segment carries schema, generation, payload length, and checksum. After
+all inactive-bank segments are written and read back byte-for-byte, a small
+manifest atomically selects that generation. Loading falls back to the prior
+bank if the active generation is corrupt. The complete redundant state uses
+roughly 0.7 KB, below the 2 KB design gate and Pebble's 4 KB total.
 
-Schema 3 reinterprets the existing search counter as a modulo-three shared
-gathering counter. Schema-1 and schema-2 records migrate in place without
-changing the 40-byte `HouseState` size.
+The legacy 40-byte schema-1 through schema-3 record remains readable. A valid
+0.1.x save is mapped into named campaign state and immediately committed as a
+schema-4 bank without discarding resources, structures, elapsed timers, or
+first-memory progress.
+
+## Generated world
+
+Terrain is regenerated from one saved 32-bit seed. Cell hashing and landmark
+placement do not consume or mutate an RNG stream. Five distance bands contain
+24 collision-free landmarks. The unpacked world is never saved; only the seed,
+121-byte visibility mask, and three-byte landmark completion bitset are stored.
+Entering a tile reveals it plus its orthogonal neighbors. Host tests pin a
+golden world hash and landmark uniqueness for a fixed seed.
+
+## Scene content
+
+`content/scenes.json` is the authoring source. The compiler enforces stable
+numeric scene IDs, known targets, reachable operations, loop-free graphs,
+terminating paths, at most three choices, 20-character choice labels, and
+80-character pages. It emits:
+
+- a scene directory plus compact bytecode;
+- a deduplicated string table;
+- a size and longest-page report.
+
+The watch reads directory records, one scene (maximum 45 bytes in 0.2.0), and
+one string at a time through resource byte ranges. The 4 KB string pack is
+never copied into RAM as a whole. VM opcodes cover text, choices, conditional
+flags/resources, costs, rewards, trust, jumps, and results.
 
 ## Elapsed time
 
@@ -60,12 +105,11 @@ persist below their thresholds.
 
 ## Testing menu
 
-Holding SELECT for one second opens a clearly labeled testing menu. Resource
-edits use ten-unit steps; Fire, guest count, and gatherer count use one-unit
-steps. Every edit is clamped to normal state limits and persisted immediately.
-Changing gatherer count derives listener count so guest assignments remain
-valid. Reset requires entering a separate confirmation screen and pressing
-SELECT again; BACK cancels.
+Holding SELECT for one second opens a clearly labeled testing menu. It covers
+all resources, Fire, campaign movement, named guests, production assignments,
+keys, thread, and direct preview of scenes 1–20. Movement advancement supplies
+the prerequisite prototype rooms so testers can enter the relevant Drift band.
+Every edit is clamped and persisted. Reset retains its separate confirmation.
 
 ## Timed house actions
 

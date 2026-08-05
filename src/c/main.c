@@ -6,7 +6,12 @@
 #include <string.h>
 #include <time.h>
 
+#include "game_state.h"
+#include "content_format.h"
+#include "expedition.h"
 #include "house_state.h"
+#include "save_store.h"
+#include "scene_vm.h"
 
 #define PERSIST_KEY_STATE 1
 #define MIN_SUPPORTED_STATE_SCHEMA 1
@@ -24,6 +29,10 @@ typedef enum {
   VIEW_DOOR,
   VIEW_EXPEDITION,
   VIEW_ENCOUNTER,
+  VIEW_DRIFT_MAP,
+  VIEW_DRIFT_MENU,
+  VIEW_SCENE_TEXT,
+  VIEW_SCENE_CHOICE,
   VIEW_CHRONICLE,
   VIEW_DEBUG,
   VIEW_DEBUG_EDIT,
@@ -43,9 +52,13 @@ typedef enum {
   DEBUG_REMNANTS,
   DEBUG_RATIONS,
   DEBUG_CLARITY,
+  DEBUG_THREAD,
+  DEBUG_KEYS,
   DEBUG_FIRE,
+  DEBUG_MOVEMENT,
   DEBUG_GUESTS,
   DEBUG_GATHERERS,
+  DEBUG_SCENE,
   DEBUG_RESET,
   DEBUG_ITEM_COUNT
 } DebugItem;
@@ -62,18 +75,20 @@ typedef struct {
   uint16_t state_size;
   HouseState state;
   uint32_t checksum;
-} PersistedState;
+} LegacyPersistedState;
 
 _Static_assert(sizeof(HouseState) == 40,
                "In-place migrations require the original state size");
-_Static_assert(sizeof(PersistedState) <= 256,
+_Static_assert(sizeof(LegacyPersistedState) <= 256,
                "The save record must fit one Pebble persistence value");
 
 static Window *s_window;
 static Layer *s_canvas;
 static AppTimer *s_notice_timer;
 static AppTimer *s_action_timer;
-static HouseState s_state;
+static GameState s_game;
+#define s_state (s_game.house)
+static uint32_t s_save_generation;
 static AppView s_view;
 static AppView s_debug_return_view;
 static DebugItem s_debug_item;
@@ -81,6 +96,15 @@ static int16_t s_selected;
 static uint16_t s_action_progress_ms;
 static TimedAction s_timed_action;
 static char s_notice[72];
+static ExpeditionDirection s_direction;
+static SceneVm s_scene_vm;
+static SceneContext s_scene_context;
+static SceneEvent s_scene_event;
+static uint8_t s_scene_code[128];
+static char s_scene_page[81];
+static uint8_t s_scene_landmark = UINT8_MAX;
+static uint8_t s_scene_id;
+static uint8_t s_debug_scene_id = 1;
 
 static const GColor s_color_background = PBL_IF_COLOR_ELSE(GColorOxfordBlue,
                                                             GColorBlack);
@@ -102,28 +126,70 @@ static uint32_t prv_checksum(const void *data, size_t length) {
   return hash;
 }
 
-static void prv_save(void) {
-  PersistedState record;
-  memset(&record, 0, sizeof(record));
-  record.schema = HOUSE_STATE_SCHEMA;
-  record.state_size = sizeof(HouseState);
-  record.state = s_state;
-  record.checksum = prv_checksum(&record, offsetof(PersistedState, checksum));
+static bool prv_persist_exists(void *context, int key) {
+  (void)context;
+  return persist_exists(key);
+}
 
-  const int result = persist_write_data(PERSIST_KEY_STATE, &record,
-                                        sizeof(record));
-  if (result != (int)sizeof(record)) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "State save failed: %d", result);
+static int prv_persist_size(void *context, int key) {
+  (void)context;
+  return persist_get_size(key);
+}
+
+static int prv_persist_read(void *context, int key, void *data, size_t size) {
+  (void)context;
+  return persist_read_data(key, data, size);
+}
+
+static int prv_persist_write(void *context, int key, const void *data,
+                             size_t size) {
+  (void)context;
+  return persist_write_data(key, data, size);
+}
+
+static const SaveBackend s_save_backend = {
+    .context = NULL,
+    .exists = prv_persist_exists,
+    .size = prv_persist_size,
+    .read = prv_persist_read,
+    .write = prv_persist_write};
+
+static void prv_sync_campaign_state(void) {
+  s_game.story.facilities |= s_state.built_mask;
+  if ((s_state.story_flags & HOUSE_STORY_FIRST_MEMORY) &&
+      s_game.story.movement == GAME_MOVEMENT_WARMTH) {
+    s_game.story.movement = GAME_MOVEMENT_FRAGMENTS;
+  }
+  if (s_game.story.movement >= GAME_MOVEMENT_FRAGMENTS) {
+    s_game.story.facilities |=
+        (1U << GAME_FACILITY_PANTRY) |
+        (1U << GAME_FACILITY_MAP_ROOM) |
+        (1U << GAME_FACILITY_QUIET_ROOM);
+  }
+  if (s_state.residents > 0) {
+    s_game.guests.guest[GAME_GUEST_MARA].present = 1;
+    s_game.guests.guest[GAME_GUEST_MARA].role = s_state.gatherers > 0
+        ? GAME_ROLE_GATHERER : GAME_ROLE_LISTENER;
   }
 }
 
-static bool prv_load(void) {
+static void prv_save(void) {
+  prv_sync_campaign_state();
+  const SaveStoreResult result = save_store_save(
+      &s_save_backend, &s_game, &s_save_generation);
+  if (result != SAVE_STORE_OK) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "State save failed: %d", (int)result);
+  }
+}
+
+static bool prv_load_legacy(void) {
   if (!persist_exists(PERSIST_KEY_STATE) ||
-      persist_get_size(PERSIST_KEY_STATE) != (int)sizeof(PersistedState)) {
+      persist_get_size(PERSIST_KEY_STATE) !=
+          (int)sizeof(LegacyPersistedState)) {
     return false;
   }
 
-  PersistedState record;
+  LegacyPersistedState record;
   memset(&record, 0, sizeof(record));
   if (persist_read_data(PERSIST_KEY_STATE, &record, sizeof(record)) !=
       (int)sizeof(record)) {
@@ -131,7 +197,7 @@ static bool prv_load(void) {
   }
 
   const uint32_t expected =
-      prv_checksum(&record, offsetof(PersistedState, checksum));
+      prv_checksum(&record, offsetof(LegacyPersistedState, checksum));
   const bool is_supported = record.schema >= MIN_SUPPORTED_STATE_SCHEMA &&
                             record.schema <= HOUSE_STATE_SCHEMA;
   const bool needs_migration = record.schema != HOUSE_STATE_SCHEMA;
@@ -153,11 +219,23 @@ static bool prv_load(void) {
     return false;
   }
 
-  s_state = record.state;
-  if (needs_migration) {
-    prv_save();
-  }
+  const uint32_t seed = (uint32_t)record.state.last_updated ^ 0x484f5553U;
+  game_state_migrate_legacy(&s_game, &record.state, seed);
+  prv_save();
   return true;
+}
+
+static bool prv_load(void) {
+  const SaveStoreResult result = save_store_load(
+      &s_save_backend, &s_game, &s_save_generation);
+  if (result == SAVE_STORE_OK) {
+    return true;
+  }
+  if (result == SAVE_STORE_CORRUPT) {
+    APP_LOG(APP_LOG_LEVEL_WARNING,
+            "Segmented state is corrupt; checking legacy save");
+  }
+  return prv_load_legacy();
 }
 
 static void prv_notice_timeout(void *context) {
@@ -191,6 +269,17 @@ static void prv_set_view(AppView view) {
   s_view = view;
   s_selected = 0;
   layer_mark_dirty(s_canvas);
+}
+
+static uint8_t prv_campaign_guest_count(void) {
+  uint8_t count = 0;
+  for (uint8_t id = 0; id < GAME_GUEST_COUNT; ++id) {
+    count += s_game.guests.guest[id].present ? 1 : 0;
+  }
+  if (count < s_state.residents) {
+    count = s_state.residents;
+  }
+  return count;
 }
 
 static int16_t prv_home_item_count(void) {
@@ -258,7 +347,13 @@ static int16_t prv_item_count(void) {
     case VIEW_GUESTS:
     case VIEW_EXPEDITION:
     case VIEW_ENCOUNTER:
+    case VIEW_DRIFT_MENU:
       return 2;
+    case VIEW_DRIFT_MAP:
+    case VIEW_SCENE_TEXT:
+      return 1;
+    case VIEW_SCENE_CHOICE:
+      return s_scene_event.choice_count;
     case VIEW_DOOR:
     case VIEW_CHRONICLE:
     case VIEW_DEBUG_EDIT:
@@ -286,8 +381,15 @@ static const char *prv_title(void) {
       return "THE DRIFT";
     case VIEW_ENCOUNTER:
       return "AN ECHO";
+    case VIEW_DRIFT_MAP:
+      return "THE DRIFT";
+    case VIEW_DRIFT_MENU:
+      return "EXPEDITION";
+    case VIEW_SCENE_TEXT:
+    case VIEW_SCENE_CHOICE:
+      return "A MEMORY";
     case VIEW_CHRONICLE:
-      return "CROOKED HALL";
+      return "CHRONICLE";
     case VIEW_DEBUG:
       return "TEST MENU";
     case VIEW_DEBUG_EDIT:
@@ -318,14 +420,27 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
       case DEBUG_CLARITY:
         snprintf(label, label_size, "Clarity: %d", s_state.clarity);
         break;
+      case DEBUG_THREAD:
+        snprintf(label, label_size, "Thread: %u", s_game.story.thread);
+        break;
+      case DEBUG_KEYS:
+        snprintf(label, label_size, "Keys: %u", s_game.story.keys);
+        break;
       case DEBUG_FIRE:
         snprintf(label, label_size, "Fire: %u", s_state.hearth_level);
         break;
+      case DEBUG_MOVEMENT:
+        snprintf(label, label_size, "Movement: %u", s_game.story.movement);
+        break;
       case DEBUG_GUESTS:
-        snprintf(label, label_size, "Guests: %u", s_state.residents);
+        snprintf(label, label_size, "Named guests: %u",
+                 prv_campaign_guest_count());
         break;
       case DEBUG_GATHERERS:
         snprintf(label, label_size, "Gatherers: %u", s_state.gatherers);
+        break;
+      case DEBUG_SCENE:
+        snprintf(label, label_size, "Preview scene: %u", s_debug_scene_id);
         break;
       case DEBUG_RESET:
         snprintf(label, label_size, "Reset game");
@@ -333,10 +448,12 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
       case DEBUG_ITEM_COUNT:
         break;
     }
-    if (index <= DEBUG_CLARITY) {
+    if (index <= DEBUG_THREAD) {
       snprintf(detail, detail_size, "SELECT edits in steps of 10.");
     } else if (index == DEBUG_GATHERERS) {
       snprintf(detail, detail_size, "Listeners adjust automatically.");
+    } else if (index == DEBUG_SCENE) {
+      snprintf(detail, detail_size, "Choose 1-20, then SELECT to preview.");
     } else if (index == DEBUG_RESET) {
       snprintf(detail, detail_size, "Requires a second SELECT.");
     } else {
@@ -370,30 +487,62 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
         value = s_state.clarity;
         step = DEBUG_RESOURCE_STEP;
         break;
+      case DEBUG_THREAD:
+        name = "Thread";
+        value = s_game.story.thread;
+        step = DEBUG_RESOURCE_STEP;
+        break;
+      case DEBUG_KEYS:
+        name = "Keys";
+        value = s_game.story.keys;
+        break;
       case DEBUG_FIRE:
         name = "Fire";
         value = s_state.hearth_level;
         break;
+      case DEBUG_MOVEMENT:
+        name = "Movement";
+        value = s_game.story.movement;
+        break;
       case DEBUG_GUESTS:
-        name = "Guests";
-        value = s_state.residents;
+        name = "Named guests";
+        value = prv_campaign_guest_count();
         break;
       case DEBUG_GATHERERS:
         name = "Gatherers";
         value = s_state.gatherers;
+        break;
+      case DEBUG_SCENE:
+        name = "Preview scene";
+        value = s_debug_scene_id;
         break;
       case DEBUG_RESET:
       case DEBUG_ITEM_COUNT:
         break;
     }
     snprintf(label, label_size, "%s: %d", name, value);
-    snprintf(detail, detail_size, "UP/DOWN %d. BACK saves.", step);
+    if (s_debug_item == DEBUG_SCENE) {
+      snprintf(detail, detail_size, "UP/DOWN chooses. SELECT opens.");
+    } else {
+      snprintf(detail, detail_size, "UP/DOWN %d. BACK saves.", step);
+    }
     return;
   }
 
   if (s_view == VIEW_DEBUG_RESET) {
     snprintf(label, label_size, "Erase all progress");
     snprintf(detail, detail_size, "SELECT confirms. BACK cancels.");
+    return;
+  }
+
+  if (s_view == VIEW_DRIFT_MENU) {
+    if (index == 0) {
+      snprintf(label, label_size, "Resume route");
+      snprintf(detail, detail_size, "Return to the 7 by 7 view.");
+    } else {
+      snprintf(label, label_size, "Return home");
+      snprintf(detail, detail_size, "Deposit all carried remnants.");
+    }
     return;
   }
 
@@ -418,13 +567,14 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
           snprintf(detail, detail_size, "Needs Shared Fire (5).");
           *enabled = false;
         } else {
-          snprintf(detail, detail_size, "%u here: %u gather, %u listen.",
-                   s_state.residents, s_state.gatherers, s_state.listeners);
+          snprintf(detail, detail_size, "%u named guests; %u gather, %u listen.",
+                   prv_campaign_guest_count(), s_state.gatherers,
+                   s_state.listeners);
         }
         return;
       case HOME_DOOR:
         snprintf(label, label_size, "Front door");
-        if (!s_state.expedition_active &&
+        if (!s_state.expedition_active && !s_game.expedition.active &&
             s_state.hearth_level < HOUSE_HEARTH_SHARED) {
           snprintf(detail, detail_size, "Needs Shared Fire (5).");
           *enabled = false;
@@ -521,9 +671,11 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
   }
 
   if (s_view == VIEW_DOOR) {
-    if (s_state.expedition_active) {
+    if (s_state.expedition_active || s_game.expedition.active) {
       snprintf(label, label_size, "Continue journey");
-      snprintf(detail, detail_size, "The Crooked Hall still holds.");
+      snprintf(detail, detail_size, s_game.expedition.active
+          ? "The mapped route still holds."
+          : "The Crooked Hall still holds.");
     } else {
       snprintf(label, label_size, "Enter the Drift");
       if (s_state.hearth_level < HOUSE_HEARTH_SHARED) {
@@ -531,7 +683,9 @@ static void prv_item_text(int16_t index, char *label, size_t label_size,
         *enabled = false;
       } else {
         snprintf(detail, detail_size, "Load 2 rations and 4 clarity.");
-        *enabled = house_can_expedition(&s_state);
+        *enabled = s_game.story.movement >= GAME_MOVEMENT_FRAGMENTS
+            ? s_state.rations >= 2 && s_state.clarity >= 4
+            : house_can_expedition(&s_state);
       }
     }
     return;
@@ -580,7 +734,7 @@ static void prv_draw_house_status(GContext *ctx, GRect bounds) {
   snprintf(cells[0], sizeof(cells[0]), is_large ? "Fire %u/5" : "F%u/5",
            s_state.hearth_level);
   snprintf(cells[1], sizeof(cells[1]), is_large ? "Guest %u" : "G%u",
-           s_state.residents);
+           prv_campaign_guest_count());
   snprintf(cells[2], sizeof(cells[2]), "K%d", s_state.kindling);
   snprintf(cells[3], sizeof(cells[3]), "M%d", s_state.remnants);
   snprintf(cells[4], sizeof(cells[4]), "R%d", s_state.rations);
@@ -692,6 +846,150 @@ static void prv_draw_list(GContext *ctx, GRect bounds, int16_t top) {
                 GTextAlignmentCenter);
 }
 
+static char prv_tile_glyph(WorldTile tile) {
+  switch (tile) {
+    case WORLD_TILE_PATH:
+      return '.';
+    case WORLD_TILE_UNSTABLE:
+      return ':';
+    case WORLD_TILE_DOMESTIC:
+      return 'd';
+    case WORLD_TILE_TRANSIT:
+      return 't';
+    case WORLD_TILE_CIVIC:
+      return 'c';
+    case WORLD_TILE_SHORELINE:
+      return '~';
+    case WORLD_TILE_MACHINE:
+      return 'm';
+    case WORLD_TILE_HAZARD:
+      return '!';
+    case WORLD_TILE_ECHO:
+      return 'E';
+    case WORLD_TILE_EVENT:
+      return '*';
+    case WORLD_TILE_LANDMARK:
+      return 'L';
+    case WORLD_TILE_HOUSE:
+      return 'H';
+  }
+  return '?';
+}
+
+static void prv_draw_drift_map(GContext *ctx, GRect bounds) {
+  const bool is_large = bounds.size.w >= 200;
+  const int16_t cell = is_large ? 24 : 16;
+  const int16_t left = (bounds.size.w - cell * 7) / 2;
+  const int16_t top = is_large ? 34 : 31;
+  static const char direction_glyphs[] = {'^', '>', 'v', '<'};
+  for (int8_t row = -3; row <= 3; ++row) {
+    for (int8_t column = -3; column <= 3; ++column) {
+      const int8_t world_x = s_game.expedition.x + column;
+      const int8_t world_y = s_game.expedition.y + row;
+      char glyph[2] = {' ', '\0'};
+      GColor color = s_color_muted;
+      if (column == 0 && row == 0) {
+        glyph[0] = direction_glyphs[s_direction];
+        color = s_color_accent;
+      } else if (!world_is_in_bounds(world_x, world_y)) {
+        glyph[0] = ' ';
+      } else if (!world_is_visible(&s_game.world, world_x, world_y)) {
+        glyph[0] = '?';
+        color = s_color_locked;
+      } else {
+        const WorldTile tile = world_tile_at(s_game.world.seed,
+                                              world_x, world_y, NULL);
+        glyph[0] = prv_tile_glyph(tile);
+        color = tile == WORLD_TILE_ECHO || tile == WORLD_TILE_HAZARD
+            ? PBL_IF_COLOR_ELSE(GColorRed, GColorWhite)
+            : (tile == WORLD_TILE_LANDMARK || tile == WORLD_TILE_HOUSE
+                ? s_color_accent : s_color_text);
+      }
+      prv_draw_text(ctx, glyph,
+                    fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), color,
+                    GRect(left + (column + 3) * cell,
+                          top + (row + 3) * cell, cell, cell + 3),
+                    GTextAlignmentCenter);
+    }
+  }
+  static const char *const names[] = {"NORTH", "EAST", "SOUTH", "WEST"};
+  char status[64];
+  snprintf(status, sizeof(status), "%s  C%u R%u V%u Carry%u",
+           names[s_direction], s_game.expedition.clarity,
+           s_game.expedition.rations, s_game.expedition.resolve,
+           s_game.expedition.cargo);
+  const bool showing_notice = s_notice[0] != '\0';
+  prv_draw_text(ctx, showing_notice ? s_notice : status,
+                fonts_get_system_font(FONT_KEY_GOTHIC_18), s_color_accent,
+                GRect(3, bounds.size.h - (showing_notice ? 42 : 24),
+                      bounds.size.w - 6, showing_notice ? 42 : 24),
+                GTextAlignmentCenter);
+}
+
+static bool prv_load_resource_string(uint16_t string_id, char *buffer,
+                                     size_t buffer_size) {
+  if (!buffer || buffer_size == 0) {
+    return false;
+  }
+  ResHandle strings = resource_get_handle(RESOURCE_ID_STRINGS);
+  uint8_t header[6];
+  if (resource_load_byte_range(strings, 0, header, sizeof(header)) !=
+          sizeof(header) || memcmp(header, "HST1", 4) != 0) {
+    return false;
+  }
+  const uint16_t count = header[4] | ((uint16_t)header[5] << 8);
+  if (string_id >= count) {
+    return false;
+  }
+  uint8_t entry[3];
+  if (resource_load_byte_range(strings, 6 + string_id * 3,
+                               entry, sizeof(entry)) != sizeof(entry)) {
+    return false;
+  }
+  const uint16_t offset = entry[0] | ((uint16_t)entry[1] << 8);
+  if ((size_t)entry[2] + 1U > buffer_size ||
+      resource_load_byte_range(strings, offset, (uint8_t *)buffer,
+                               entry[2]) != entry[2]) {
+    return false;
+  }
+  buffer[entry[2]] = '\0';
+  return true;
+}
+
+static void prv_draw_scene(GContext *ctx, GRect bounds) {
+  if (s_view == VIEW_SCENE_TEXT) {
+    prv_draw_text(ctx, s_scene_page,
+                  fonts_get_system_font(FONT_KEY_GOTHIC_24), s_color_text,
+                  GRect(8, 31, bounds.size.w - 16, bounds.size.h - 54),
+                  GTextAlignmentCenter);
+    prv_draw_text(ctx, "SELECT continues",
+                  fonts_get_system_font(FONT_KEY_GOTHIC_18), s_color_accent,
+                  GRect(4, bounds.size.h - 25, bounds.size.w - 8, 24),
+                  GTextAlignmentCenter);
+    return;
+  }
+  for (uint8_t index = 0; index < s_scene_event.choice_count; ++index) {
+    char choice[24];
+    if (!prv_load_resource_string(s_scene_event.choice_string_ids[index],
+                                  choice, sizeof(choice))) {
+      snprintf(choice, sizeof(choice), "Unavailable");
+    }
+    const int16_t y = 42 + index * 38;
+    if (index == (uint8_t)s_selected) {
+      graphics_context_set_fill_color(ctx, s_color_accent);
+      graphics_fill_rect(ctx, GRect(5, y, bounds.size.w - 10, 34),
+                         3, GCornersAll);
+    }
+    prv_draw_text(ctx, choice,
+                  fonts_get_system_font(index == (uint8_t)s_selected
+                      ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_24),
+                  index == (uint8_t)s_selected
+                      ? s_color_background : s_color_text,
+                  GRect(9, y, bounds.size.w - 18, 34),
+                  GTextAlignmentCenter);
+  }
+}
+
 static void prv_canvas_update(Layer *layer, GContext *ctx) {
   const GRect bounds = layer_get_bounds(layer);
   graphics_context_set_fill_color(ctx, s_color_background);
@@ -701,6 +999,15 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
                 fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
                 s_color_accent, GRect(4, 0, bounds.size.w - 8, 30),
                 GTextAlignmentCenter);
+
+  if (s_view == VIEW_DRIFT_MAP) {
+    prv_draw_drift_map(ctx, bounds);
+    return;
+  }
+  if (s_view == VIEW_SCENE_TEXT || s_view == VIEW_SCENE_CHOICE) {
+    prv_draw_scene(ctx, bounds);
+    return;
+  }
 
   const bool is_large = bounds.size.w >= 200;
   const bool is_house_status = s_view != VIEW_EXPEDITION &&
@@ -722,9 +1029,20 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
                s_state.cargo_remnants);
     }
   } else if (s_view == VIEW_CHRONICLE) {
-    snprintf(status, sizeof(status),
-             "Red door: a buried name.\n"
-             "Mark below the hearth.");
+    if (s_game.story.ending == 1) {
+      snprintf(status, sizeof(status),
+               "WAKE\nRowan carries the house into daylight.");
+    } else if (s_game.story.ending == 2) {
+      snprintf(status, sizeof(status),
+               "KEEP\nThe first permanent morning begins.");
+    } else if (s_game.story.ending == 3) {
+      snprintf(status, sizeof(status),
+               "BECOME THE DOOR\nNo keeper owns the threshold.");
+    } else {
+      snprintf(status, sizeof(status),
+               "Red door: a buried name.\n"
+               "Mark below the hearth.");
+    }
   } else {
     if (is_large) {
       snprintf(status, sizeof(status),
@@ -865,6 +1183,154 @@ static void prv_start_timed_action(TimedAction action) {
   layer_mark_dirty(s_canvas);
 }
 
+static void prv_scene_context_from_game(void) {
+  memset(&s_scene_context, 0, sizeof(s_scene_context));
+  s_scene_context.resources[0] = s_state.kindling;
+  s_scene_context.resources[1] = s_state.remnants;
+  s_scene_context.resources[2] = s_game.expedition.rations;
+  s_scene_context.resources[3] = s_game.expedition.clarity;
+  s_scene_context.resources[4] = (int16_t)s_game.story.thread;
+  s_scene_context.resources[5] = s_game.story.keys;
+  s_scene_context.resources[6] = s_game.expedition.resolve;
+  s_scene_context.flags = s_game.story.story_flags;
+  for (uint8_t id = 0; id < GAME_GUEST_COUNT; ++id) {
+    s_scene_context.trust[id] = s_game.guests.guest[id].trust;
+  }
+}
+
+static void prv_apply_scene_context(void) {
+  s_state.kindling = s_scene_context.resources[0];
+  s_state.remnants = s_scene_context.resources[1];
+  s_game.expedition.rations = (uint16_t)s_scene_context.resources[2];
+  s_game.expedition.clarity = (uint16_t)s_scene_context.resources[3];
+  s_game.story.thread = (uint16_t)s_scene_context.resources[4];
+  s_game.story.keys = (uint8_t)s_scene_context.resources[5];
+  s_game.expedition.resolve = (uint8_t)s_scene_context.resources[6];
+  s_game.story.story_flags = s_scene_context.flags;
+  for (uint8_t id = 0; id < GAME_GUEST_COUNT; ++id) {
+    s_game.guests.guest[id].trust = s_scene_context.trust[id];
+  }
+  if (s_scene_context.flags & (UINT64_C(1) << 2)) {
+    s_game.guests.guest[GAME_GUEST_OREN].present = 1;
+    s_game.guests.guest[GAME_GUEST_OREN].role = GAME_ROLE_LISTENER;
+  }
+  if (s_scene_context.flags & (UINT64_C(1) << 4)) {
+    s_game.guests.guest[GAME_GUEST_SERA].present = 1;
+    s_game.guests.guest[GAME_GUEST_SERA].role = GAME_ROLE_MENDER;
+  }
+}
+
+static void prv_scene_advance(void) {
+  s_scene_event = scene_vm_run(&s_scene_vm, &s_scene_context);
+  if (s_scene_event.type == SCENE_EVENT_TEXT) {
+    if (!prv_load_resource_string(s_scene_event.string_id, s_scene_page,
+                                  sizeof(s_scene_page))) {
+      snprintf(s_scene_page, sizeof(s_scene_page),
+               "The memory cannot be read.");
+    }
+    prv_set_view(VIEW_SCENE_TEXT);
+    return;
+  }
+  if (s_scene_event.type == SCENE_EVENT_CHOICE) {
+    prv_set_view(VIEW_SCENE_CHOICE);
+    return;
+  }
+  if (s_scene_event.type == SCENE_EVENT_END) {
+    prv_apply_scene_context();
+    bool advanced = false;
+    if (s_scene_landmark < WORLD_LANDMARK_COUNT &&
+        s_scene_event.result > 0) {
+      advanced = game_state_complete_landmark(&s_game, s_scene_landmark);
+    }
+    if (s_scene_id == 19 && s_scene_event.result >= 1 &&
+        s_scene_event.result <= 3) {
+      if (game_state_choose_ending(&s_game, s_scene_event.result)) {
+        expedition_return(&s_game);
+        s_scene_landmark = UINT8_MAX;
+        prv_save();
+        prv_set_view(VIEW_CHRONICLE);
+        prv_show_notice("The final door opens.");
+        return;
+      }
+    }
+    s_scene_landmark = UINT8_MAX;
+    prv_save();
+    prv_set_view(VIEW_DRIFT_MAP);
+    prv_show_notice(advanced
+        ? "A farther region answers the house."
+        : "The memory holds in the Chronicle.");
+    return;
+  }
+  s_scene_landmark = UINT8_MAX;
+  prv_set_view(VIEW_DRIFT_MAP);
+  prv_show_notice("The memory breaks before it settles.");
+}
+
+static bool prv_begin_scene(uint8_t scene_id, uint8_t landmark_id) {
+  ResHandle scenes = resource_get_handle(RESOURCE_ID_SCENES);
+  const size_t scene_bytes = resource_size(scenes);
+  uint8_t header[5];
+  if (scene_bytes < sizeof(header) ||
+      resource_load_byte_range(scenes, 0, header, sizeof(header)) !=
+          sizeof(header) || memcmp(header, "HSC1", 4) != 0) {
+    return false;
+  }
+  uint16_t code_offset = 0;
+  uint16_t code_size = 0;
+  for (uint8_t index = 0; index < header[4]; ++index) {
+    uint8_t entry[5];
+    if (resource_load_byte_range(scenes, 5 + index * 5,
+                                 entry, sizeof(entry)) != sizeof(entry)) {
+      return false;
+    }
+    if (entry[0] == scene_id) {
+      code_offset = entry[1] | ((uint16_t)entry[2] << 8);
+      code_size = entry[3] | ((uint16_t)entry[4] << 8);
+      break;
+    }
+  }
+  if (code_size == 0 || code_size > sizeof(s_scene_code) ||
+      (size_t)code_offset + code_size > scene_bytes ||
+      resource_load_byte_range(scenes, code_offset, s_scene_code,
+                               code_size) != code_size) {
+    return false;
+  }
+  scene_vm_init(&s_scene_vm, s_scene_code, code_size);
+  prv_scene_context_from_game();
+  s_scene_landmark = landmark_id;
+  s_scene_id = scene_id;
+  prv_scene_advance();
+  return true;
+}
+
+static void prv_activate_drift_map(void) {
+  uint8_t landmark_id = UINT8_MAX;
+  const ExpeditionResult result = expedition_move(
+      &s_game, s_direction, &landmark_id);
+  if (result == EXPEDITION_RESULT_EVENT) {
+    if (!prv_begin_scene(20, UINT8_MAX)) {
+      prv_show_notice("The fragment refuses a shape.");
+    }
+  } else if (result == EXPEDITION_RESULT_LANDMARK) {
+    const uint8_t scene_id = landmark_id >= 5
+        ? (uint8_t)(landmark_id - 4U) : 0;
+    if (scene_id == 0 || !prv_begin_scene(scene_id, landmark_id)) {
+      prv_show_notice("A landmark waits beyond this build.");
+    }
+  } else if (result == EXPEDITION_RESULT_HIT) {
+    prv_show_notice("The fragment takes a detail from you.");
+  } else if (result == EXPEDITION_RESULT_BOUNDARY) {
+    prv_show_notice("A stronger anchor must come first.");
+  } else if (result == EXPEDITION_RESULT_FAILED) {
+    prv_set_view(VIEW_DOOR);
+    prv_show_notice("The Drift unmade the route.");
+  } else if (result == EXPEDITION_RESULT_OK) {
+    prv_clear_notice();
+  }
+  prv_save();
+  layer_mark_dirty(s_canvas);
+}
+
 static void prv_activate_home(void) {
   switch (prv_home_item_at(s_selected)) {
     case HOME_HEARTH:
@@ -919,9 +1385,28 @@ static void prv_activate_guests(void) {
 }
 
 static void prv_activate_door(void) {
+  if (s_game.expedition.active) {
+    prv_set_view(VIEW_DRIFT_MAP);
+    return;
+  }
   if (s_state.expedition_active) {
     prv_set_view(s_state.encounter_strength > 0
         ? VIEW_ENCOUNTER : VIEW_EXPEDITION);
+    return;
+  }
+
+  if (s_game.story.movement >= GAME_MOVEMENT_FRAGMENTS) {
+    const ExpeditionResult result = expedition_start(&s_game);
+    if (result == EXPEDITION_RESULT_OK) {
+      s_direction = EXPEDITION_NORTH;
+      prv_set_view(VIEW_DRIFT_MAP);
+      prv_show_notice("Known rooms fall away behind you.");
+    } else if (result == EXPEDITION_RESULT_NO_RESOURCES) {
+      prv_show_notice("Bring 2 rations and 4 clarity.");
+    } else {
+      prv_show_notice("The front door will not hold.");
+    }
+    prv_save();
     return;
   }
 
@@ -985,6 +1470,18 @@ static void prv_activate_encounter(void) {
   prv_save();
 }
 
+static void prv_activate_drift_menu(void) {
+  if (s_selected == 0) {
+    prv_set_view(VIEW_DRIFT_MAP);
+    return;
+  }
+  if (expedition_return(&s_game) == EXPEDITION_RESULT_RETURNED) {
+    prv_set_view(VIEW_DOOR);
+    prv_show_notice("The carried fragments settle at home.");
+    prv_save();
+  }
+}
+
 static int16_t prv_adjusted_value(int16_t value, int32_t amount,
                                   int16_t minimum, int16_t maximum) {
   const int32_t adjusted = value + amount;
@@ -1016,14 +1513,53 @@ static void prv_debug_adjust(int direction) {
       s_state.clarity = prv_adjusted_value(
           s_state.clarity, resource_amount, 0, HOUSE_RESOURCE_MAX);
       break;
+    case DEBUG_THREAD:
+      s_game.story.thread = (uint16_t)prv_adjusted_value(
+          (int16_t)s_game.story.thread, resource_amount,
+          0, HOUSE_RESOURCE_MAX);
+      break;
+    case DEBUG_KEYS:
+      s_game.story.keys = (uint8_t)prv_adjusted_value(
+          s_game.story.keys, direction, 0, 9);
+      break;
     case DEBUG_FIRE:
       s_state.hearth_level = (uint8_t)prv_adjusted_value(
           s_state.hearth_level, direction, 0, HOUSE_HEARTH_MAX);
       s_state.hearth_elapsed = 0;
       break;
+    case DEBUG_MOVEMENT: {
+      const uint8_t movement = (uint8_t)prv_adjusted_value(
+          s_game.story.movement, direction,
+          GAME_MOVEMENT_WARMTH, GAME_MOVEMENT_FINAL_DOOR);
+      s_game.story.movement = movement;
+      if (movement >= GAME_MOVEMENT_FRAGMENTS) {
+        s_state.built_mask = (1U << HOUSE_BUILD_GUEST_ROOM) |
+                             (1U << HOUSE_BUILD_WORKTABLE) |
+                             (1U << HOUSE_BUILD_ANCHOR_LINE);
+        s_state.story_flags |= HOUSE_STORY_FIRST_GUEST |
+                               HOUSE_STORY_FIRST_MEMORY;
+        s_state.memories = 1;
+        s_state.hearth_level = HOUSE_HEARTH_SHARED;
+        s_state.hearth_elapsed = 0;
+        s_state.residents = 2;
+        s_state.gatherers = 1;
+        s_state.listeners = 1;
+        s_game.guests.guest[GAME_GUEST_MARA].present = 1;
+        s_game.guests.guest[GAME_GUEST_OREN].present = 1;
+      }
+      break;
+    }
     case DEBUG_GUESTS: {
-      const uint8_t residents = (uint8_t)prv_adjusted_value(
-          s_state.residents, direction, 0, 2);
+      const uint8_t guests = (uint8_t)prv_adjusted_value(
+          prv_campaign_guest_count(), direction, 0, GAME_GUEST_COUNT);
+      for (uint8_t id = 0; id < GAME_GUEST_COUNT; ++id) {
+        s_game.guests.guest[id].present = id < guests;
+        s_game.guests.guest[id].role = id == GAME_GUEST_OREN
+            ? GAME_ROLE_LISTENER : (id == GAME_GUEST_SERA
+                ? GAME_ROLE_MENDER : (id == GAME_GUEST_BELL
+                    ? GAME_ROLE_WITNESS : GAME_ROLE_GATHERER));
+      }
+      const uint8_t residents = guests > 2 ? 2 : guests;
       if (residents > s_state.residents) {
         s_state.gatherers += residents - s_state.residents;
         s_state.story_flags |= HOUSE_STORY_FIRST_GUEST;
@@ -1038,6 +1574,10 @@ static void prv_debug_adjust(int direction) {
       s_state.gatherers = (uint8_t)prv_adjusted_value(
           s_state.gatherers, direction, 0, s_state.residents);
       s_state.listeners = s_state.residents - s_state.gatherers;
+      break;
+    case DEBUG_SCENE:
+      s_debug_scene_id = (uint8_t)prv_adjusted_value(
+          s_debug_scene_id, direction, 1, 20);
       break;
     case DEBUG_RESET:
     case DEBUG_ITEM_COUNT:
@@ -1063,7 +1603,9 @@ static void prv_return_to_debug(void) {
 }
 
 static void prv_confirm_debug_reset(void) {
-  house_state_init(&s_state, time(NULL));
+  const time_t now = time(NULL);
+  game_state_init(&s_game, now, (uint32_t)now ^ 0x484f5553U);
+  s_save_generation = 0;
   prv_save();
   s_debug_return_view = VIEW_HOME;
   prv_set_view(VIEW_HOME);
@@ -1098,6 +1640,20 @@ static void prv_select_click(ClickRecognizerRef recognizer, void *context) {
     case VIEW_ENCOUNTER:
       prv_activate_encounter();
       break;
+    case VIEW_DRIFT_MAP:
+      prv_activate_drift_map();
+      break;
+    case VIEW_DRIFT_MENU:
+      prv_activate_drift_menu();
+      break;
+    case VIEW_SCENE_TEXT:
+      prv_scene_advance();
+      break;
+    case VIEW_SCENE_CHOICE:
+      if (scene_vm_choose(&s_scene_vm, (uint8_t)s_selected)) {
+        prv_scene_advance();
+      }
+      break;
     case VIEW_CHRONICLE:
       prv_set_view(VIEW_HOME);
       break;
@@ -1105,6 +1661,10 @@ static void prv_select_click(ClickRecognizerRef recognizer, void *context) {
       prv_activate_debug();
       break;
     case VIEW_DEBUG_EDIT:
+      if (s_debug_item == DEBUG_SCENE &&
+          !prv_begin_scene(s_debug_scene_id, UINT8_MAX)) {
+        prv_show_notice("The scene resource cannot be read.");
+      }
       break;
     case VIEW_DEBUG_RESET:
       prv_confirm_debug_reset();
@@ -1120,6 +1680,11 @@ static void prv_up_click(ClickRecognizerRef recognizer, void *context) {
   }
   if (s_view == VIEW_DEBUG_EDIT) {
     prv_debug_adjust(1);
+    return;
+  }
+  if (s_view == VIEW_DRIFT_MAP) {
+    s_direction = (ExpeditionDirection)((s_direction + 3U) % 4U);
+    layer_mark_dirty(s_canvas);
     return;
   }
   if (s_selected > 0) {
@@ -1138,6 +1703,11 @@ static void prv_down_click(ClickRecognizerRef recognizer, void *context) {
     prv_debug_adjust(-1);
     return;
   }
+  if (s_view == VIEW_DRIFT_MAP) {
+    s_direction = (ExpeditionDirection)((s_direction + 1U) % 4U);
+    layer_mark_dirty(s_canvas);
+    return;
+  }
   if (s_selected + 1 < prv_item_count()) {
     s_selected++;
     layer_mark_dirty(s_canvas);
@@ -1152,6 +1722,12 @@ static void prv_back_click(ClickRecognizerRef recognizer, void *context) {
   }
   if (s_view == VIEW_DEBUG_EDIT || s_view == VIEW_DEBUG_RESET) {
     prv_return_to_debug();
+  } else if (s_view == VIEW_SCENE_TEXT || s_view == VIEW_SCENE_CHOICE) {
+    vibes_short_pulse();
+  } else if (s_view == VIEW_DRIFT_MAP) {
+    prv_set_view(VIEW_DRIFT_MENU);
+  } else if (s_view == VIEW_DRIFT_MENU) {
+    prv_set_view(VIEW_DRIFT_MAP);
   } else if (s_view == VIEW_DEBUG) {
     prv_set_view(s_debug_return_view);
   } else if (s_view == VIEW_HOME) {
@@ -1214,7 +1790,8 @@ static void prv_window_unload(Window *window) {
 
 static void prv_init(void) {
   if (!prv_load()) {
-    house_state_init(&s_state, time(NULL));
+    const time_t now = time(NULL);
+    game_state_init(&s_game, now, (uint32_t)now ^ 0x484f5553U);
     snprintf(s_notice, sizeof(s_notice),
              "The house moves over nothing.");
   } else {

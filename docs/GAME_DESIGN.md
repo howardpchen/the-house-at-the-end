@@ -117,9 +117,9 @@ line, not exclusive information.
 - full planned save target below 2 KB, split across Pebble's 256-byte
   persistence values.
 
-## Current vertical slice
+## Current campaign foundation
 
-Version 0.1.8 implements:
+Version 0.2.0 implements:
 
 - two-second room searches, hearth-feeding, and ration-preparation actions,
   plus a hearth that loses one Fire every two minutes;
@@ -128,13 +128,17 @@ Version 0.1.8 implements:
 - first guest arrival and two elapsed-time roles;
 - three foundational structures;
 - ration and clarity preparation;
-- one supply-limited expedition and encounter;
-- Chronicle completion;
-- versioned, checksummed persistence;
+- the original supply-limited Crooked Hall expedition and encounter;
+- a deterministic 31×31 Drift, 7×7 viewport, visibility, and 24 stable major
+  landmark positions;
+- a compact compiled scene format with 20 scenes and 73 bounded text strings;
+- a route through all five campaign movements and all three ending choices;
+- a segmented, checksummed, two-bank save with 0.1.x migration and recovery of
+  the prior bank after an interrupted or corrupt write;
 - host-side deterministic rules tests;
 - successful complete emulator progression on Basalt and Emery;
-- a long-SELECT testing menu for resources, Fire, guests, assignments, and
-  confirmed game reset.
+- a long-SELECT testing menu for resources, Fire, movement, named guests,
+  assignments, keys, thread, scene preview, and confirmed game reset.
 
 Reviewed builds install successfully on physical Time 2 through CloudPebble.
 Physical Time Steel validation remains outstanding, and interaction feel,
@@ -147,4 +151,7 @@ The complete campaign expands the house, introduces a small named cast, opens a
 seeded world map, adds equipment and varied encounters, and develops the
 mystery across five major movements toward a consequential final decision.
 
-Detailed plot information is intentionally omitted here.
+Detailed plot information is intentionally omitted here. Version 0.2.0 is a
+campaign-path alpha, not a content-complete release: the full facility economy,
+guest conversation catalog, equipment, encounter variety, and final balance
+pass remain under development.
